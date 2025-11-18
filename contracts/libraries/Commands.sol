@@ -46,4 +46,10 @@ library Commands {
     // Command Types where 0x40<=value<=0x5f
     // Reserved for 3rd party integrations
     uint256 constant ACROSS_V4_DEPOSIT_V3 = 0x40;
+    uint256 constant VELODROME_SWAP_EXACT_IN = 0x41;
+    uint256 constant VELODROME_SWAP_EXACT_OUT = 0x42;
+    uint256 constant SLIPSTREAM_V1_SWAP_EXACT_IN = 0x43;
+    uint256 constant SLIPSTREAM_V1_SWAP_EXACT_OUT = 0x44;
+    uint256 constant SLIPSTREAM_V2_SWAP_EXACT_IN = 0x45;
+    uint256 constant SLIPSTREAM_V2_SWAP_EXACT_OUT = 0x46;
 }

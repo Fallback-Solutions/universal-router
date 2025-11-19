@@ -32,7 +32,7 @@ contract UniversalRouter is IUniversalRouter, ChainedActions, RouteSigner, Dispa
                 params.slipstreamV2Factory,
                 params.slipstreamV2InitCodeHash
             ))
-        EIP712('UniversalRouter PL', '1')
+        EIP712('UniversalRouter FB', '1')
     {}
 
     modifier checkDeadline(uint256 deadline) {

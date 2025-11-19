@@ -48,13 +48,13 @@ library Commands {
     uint256 constant ACROSS_V4_DEPOSIT_V3 = 0x40;
 
     // Command Types where 0x50<=value<=0x57
-    // Used by PL
+    // Used by FB
     uint256 constant VELODROME_SWAP_EXACT_IN = 0x50;
     uint256 constant VELODROME_SWAP_EXACT_OUT = 0x51;
     uint256 constant SLIPSTREAM_V1_SWAP_EXACT_IN = 0x52;
 
     // Command Types where 0x58<=value<=0x5f
-    // Used by PL
+    // Used by FB
     uint256 constant SLIPSTREAM_V1_SWAP_EXACT_OUT = 0x58;
     uint256 constant SLIPSTREAM_V2_SWAP_EXACT_IN = 0x59;
     uint256 constant SLIPSTREAM_V2_SWAP_EXACT_OUT = 0x5a;

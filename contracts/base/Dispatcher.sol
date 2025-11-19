@@ -266,26 +266,38 @@ abstract contract Dispatcher is
                 // placeholder area for commands 0x22-0x3f
                 revert InvalidCommandType(command);
             }
-        } else {
+        } else if (command < Commands.VELODROME_SWAP_EXACT_IN) {
             if (command == Commands.ACROSS_V4_DEPOSIT_V3) {
                 _acrossV4DepositV3(inputs);
-            } else if (command == Commands.VELODROME_SWAP_EXACT_IN) {
-                // TODO
-                revert InvalidCommandType(command);
-            } else if (command == Commands.VELODROME_SWAP_EXACT_OUT) {
-                // TODO
-                revert InvalidCommandType(command);
-            } else if (command == Commands.SLIPSTREAM_V1_SWAP_EXACT_IN) {
-                v3SwapExactInput(Protocols.SLIPSTREAM_V1, inputs);
-            } else if (command == Commands.SLIPSTREAM_V1_SWAP_EXACT_OUT) {
-                v3SwapExactOutput(Protocols.SLIPSTREAM_V1, inputs);
-            } else if (command == Commands.SLIPSTREAM_V2_SWAP_EXACT_IN) {
-                v3SwapExactInput(Protocols.SLIPSTREAM_V2, inputs);
-            } else if (command == Commands.SLIPSTREAM_V2_SWAP_EXACT_OUT) {
-                v3SwapExactOutput(Protocols.SLIPSTREAM_V2, inputs);
             } else {
-                // placeholder area for commands 0x41-0x5f
+                // placeholder area for commands 0x41-0x4f
                 revert InvalidCommandType(command);
+            }
+        } else {
+            if (command < Commands.SLIPSTREAM_V1_SWAP_EXACT_OUT) {
+                if (command == Commands.VELODROME_SWAP_EXACT_IN) {
+                    // TODO
+                    revert InvalidCommandType(command);
+                } else if (command == Commands.VELODROME_SWAP_EXACT_OUT) {
+                    // TODO
+                    revert InvalidCommandType(command);
+                } else if (command == Commands.SLIPSTREAM_V1_SWAP_EXACT_IN) {
+                    v3SwapExactInput(Protocols.SLIPSTREAM_V1, inputs);
+                } else {
+                    // placeholder area for commands 0x53-0x57
+                    revert InvalidCommandType(command);
+                }
+            } else {
+                if (command == Commands.SLIPSTREAM_V1_SWAP_EXACT_OUT) {
+                    v3SwapExactOutput(Protocols.SLIPSTREAM_V1, inputs);
+                } else if (command == Commands.SLIPSTREAM_V2_SWAP_EXACT_IN) {
+                    v3SwapExactInput(Protocols.SLIPSTREAM_V2, inputs);
+                } else if (command == Commands.SLIPSTREAM_V2_SWAP_EXACT_OUT) {
+                    v3SwapExactOutput(Protocols.SLIPSTREAM_V2, inputs);
+                } else {
+                    // placeholder area for commands 0x5b-0x5f
+                    revert InvalidCommandType(command);
+                }
             }
         }
     }

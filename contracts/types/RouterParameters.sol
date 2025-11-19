@@ -16,4 +16,11 @@ struct RouterParameters {
     address v4PositionManager;
     // Across parameters
     address spokePool;
+    // MetaDex parameters
+    address velodromeFactory;
+    bytes32 velodromeInitCodeHash;
+    address slipstreamV1Factory;
+    bytes32 slipstreamV1InitCodeHash;
+    address slipstreamV2Factory;
+    bytes32 slipstreamV2InitCodeHash;
 }

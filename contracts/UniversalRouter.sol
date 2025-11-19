@@ -13,6 +13,7 @@ import {IUniversalRouter} from './interfaces/IUniversalRouter.sol';
 import {MigratorImmutables, MigratorParameters} from './modules/MigratorImmutables.sol';
 import {EIP712} from '@openzeppelin/contracts/utils/cryptography/EIP712.sol';
 import {ChainedActions} from './modules/ChainedActions.sol';
+import {MetaDexImmutables, MetaDexParameters} from './modules/meta-dex/MetaDexImmutables.sol';
 
 contract UniversalRouter is IUniversalRouter, ChainedActions, RouteSigner, Dispatcher {
     constructor(RouterParameters memory params)
@@ -23,7 +24,15 @@ contract UniversalRouter is IUniversalRouter, ChainedActions, RouteSigner, Dispa
         PaymentsImmutables(PaymentsParameters(params.permit2, params.weth9))
         MigratorImmutables(MigratorParameters(params.v3NFTPositionManager, params.v4PositionManager))
         ChainedActions(params.spokePool)
-        EIP712('UniversalRouter', '2')
+        MetaDexImmutables(MetaDexParameters(
+                params.velodromeFactory,
+                params.velodromeInitCodeHash,
+                params.slipstreamV1Factory,
+                params.slipstreamV1InitCodeHash,
+                params.slipstreamV2Factory,
+                params.slipstreamV2InitCodeHash
+            ))
+        EIP712('UniversalRouter FB', '1')
     {}
 
     modifier checkDeadline(uint256 deadline) {

@@ -12,5 +12,5 @@
 	url = https://github.com/uniswap/v3-periphery
 [submodule "lib/v4-periphery"]
 	path = lib/v4-periphery
-	url = https://github.com/Uniswap/v4-periphery
+	url = https://github.com/Fallback-Solutions/v4-periphery
 	branch = main

@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import {V2SwapRouter} from '../modules/uniswap/v2/V2SwapRouter.sol';
 import {V3SwapQuoter} from '../modules/uniswap/v3/V3SwapQuoter.sol';
-import {V4SwapRouter} from '../modules/uniswap/v4/V4SwapRouter.sol';
+import {V4SwapQuoter} from '../modules/uniswap/v4/V4SwapQuoter.sol';
 import {BytesLib} from '../modules/uniswap/v3/BytesLib.sol';
 import {Payments} from '../modules/Payments.sol';
 import {PaymentsImmutables} from '../modules/PaymentsImmutables.sol';
@@ -19,7 +19,7 @@ import {QuoterStateLib, State} from '../libraries/QuoterState.sol';
 
 /// @title Decodes and Executes Commands
 /// @notice Called by the UniversalQuoter contract to efficiently decode and execute a singular command
-abstract contract QuoteDispatcher is Payments, V2SwapRouter, V3SwapQuoter, V4SwapRouter {
+abstract contract QuoteDispatcher is Payments, V2SwapRouter, V3SwapQuoter, V4SwapQuoter {
     using BytesLib for bytes;
     using CalldataDecoder for bytes;
     using QuoterStateLib for State;
@@ -82,6 +82,8 @@ abstract contract QuoteDispatcher is Payments, V2SwapRouter, V3SwapQuoter, V4Swa
                             recipient := calldataload(add(inputs.offset, 0x20))
                         }
                         state.sweep(token, map(recipient));
+                        // Gas estimate is the worst case erc20-transfer cost (cold sstore).
+                        gasEstimate = 20_000;
                     } else if (command == Commands.TRANSFER) {
                         revert InvalidCommandType(command);
                     } else if (command == Commands.PAY_PORTION) {
@@ -114,8 +116,7 @@ abstract contract QuoteDispatcher is Payments, V2SwapRouter, V3SwapQuoter, V4Swa
             } else {
                 // 0x10 <= command < 0x21
                 if (command == Commands.V4_SWAP) {
-                    // pass the calldata provided to V4SwapRouter._executeActions (defined in BaseActionsRouter)
-                    revert InvalidCommandType(command);
+                    gasEstimate = _quoteActions(state, inputs);
                     // This contract MUST be approved to spend the token since its going to be doing the call on the position manager
                 } else if (command == Commands.V3_POSITION_MANAGER_PERMIT) {
                     revert InvalidCommandType(command);

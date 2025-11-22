@@ -45,6 +45,12 @@ library QuoterStateLib {
         else revert InvalidTokenIn();
     }
 
+    function getTokenInBalance(State memory state, address token) internal view returns (uint256 balance) {
+        validateTokenIn(state, token);
+
+        return state.tokenIn.balance;
+    }
+
     function creditTokenIn(State memory state, address token, uint256 amount) internal view {
         validateTokenIn(state, token);
 
@@ -84,6 +90,12 @@ library QuoterStateLib {
             nextToken(state);
             state.tokenOut.token = token;
         }
+    }
+
+    function getTokenOutBalance(State memory state, address token) internal view returns (uint256 balance) {
+        validateTokenOut(state, token);
+
+        return state.tokenOut.balance;
     }
 
     function creditTokenOut(State memory state, address token, uint256 amount) internal view {

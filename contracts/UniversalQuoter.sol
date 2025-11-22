@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.24;
 
-// Command implementations
-import {QuoteDispatcher} from './base/QuoteDispatcher.sol';
-import {RouterParameters} from './types/RouterParameters.sol';
-import {PaymentsImmutables, PaymentsParameters} from './modules/PaymentsImmutables.sol';
-import {UniswapImmutables, UniswapParameters} from './modules/uniswap/UniswapImmutables.sol';
-import {V4SwapRouter} from './modules/uniswap/v4/V4SwapRouter.sol';
 import {IUniversalQuoter} from './interfaces/IUniversalQuoter.sol';
 import {MetaDexImmutables, MetaDexParameters} from './modules/meta-dex/MetaDexImmutables.sol';
+import {PaymentsImmutables, PaymentsParameters} from './modules/PaymentsImmutables.sol';
+import {QuoteDispatcher} from './base/QuoteDispatcher.sol';
 import {QuoterStateLib, State} from './libraries/QuoterState.sol';
+import {RouterParameters} from './types/RouterParameters.sol';
+import {UniswapImmutables, UniswapParameters} from './modules/uniswap/UniswapImmutables.sol';
+import {V4SwapQuoter} from './modules/uniswap/v4/V4SwapQuoter.sol';
 
 contract UniversalQuoter is IUniversalQuoter, QuoteDispatcher {
     using QuoterStateLib for State;
@@ -17,7 +16,7 @@ contract UniversalQuoter is IUniversalQuoter, QuoteDispatcher {
         UniswapImmutables(UniswapParameters(
                 params.v2Factory, params.v3Factory, params.pairInitCodeHash, params.poolInitCodeHash
             ))
-        V4SwapRouter(params.v4PoolManager)
+        V4SwapQuoter(params.v4PoolManager)
         PaymentsImmutables(PaymentsParameters(params.permit2, params.weth9))
         MetaDexImmutables(MetaDexParameters(
                 params.velodromeFactory,
@@ -36,7 +35,7 @@ contract UniversalQuoter is IUniversalQuoter, QuoteDispatcher {
         returns (uint256 tokenStartBalance_, uint256 amountOut, uint256 gasEstimate)
     {
         // Set msg.sender in transient storage if we are not in a sub-plan.
-        if (QuoterStateLib.isSubPlan()) _msgSender = msgSender_;
+        if (!QuoterStateLib.isSubPlan()) _msgSender = msgSender_;
 
         // Accounting of state.
         State memory state;

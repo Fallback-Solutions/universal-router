@@ -5,13 +5,14 @@ import {IUniversalQuoter} from './interfaces/IUniversalQuoter.sol';
 import {MetaDexImmutables, MetaDexParameters} from './modules/meta-dex/MetaDexImmutables.sol';
 import {PaymentsImmutables, PaymentsParameters} from './modules/PaymentsImmutables.sol';
 import {QuoteDispatcher} from './base/QuoteDispatcher.sol';
-import {QuoterStateLib, State} from './libraries/QuoterState.sol';
+import {QuoterStateLib, State, Token} from './libraries/QuoterState.sol';
 import {RouterParameters} from './types/RouterParameters.sol';
 import {UniswapImmutables, UniswapParameters} from './modules/uniswap/UniswapImmutables.sol';
 import {V4SwapQuoter} from './modules/uniswap/v4/V4SwapQuoter.sol';
 
 contract UniversalQuoter is IUniversalQuoter, QuoteDispatcher {
     using QuoterStateLib for State;
+
     constructor(RouterParameters memory params)
         UniswapImmutables(UniswapParameters(
                 params.v2Factory, params.v3Factory, params.pairInitCodeHash, params.poolInitCodeHash
@@ -28,20 +29,35 @@ contract UniversalQuoter is IUniversalQuoter, QuoteDispatcher {
             ))
     {}
 
-    /// @inheritdoc QuoteDispatcher
-    function quote(bytes calldata commands, bytes[] calldata inputs, address msgSender_, uint256 tokenStartBalance)
+    /// @notice Quotes encoded commands along with provided inputs.
+    /// @param commands A set of concatenated commands, each 1 byte in length
+    /// @param inputs An array of byte strings containing abi encoded inputs for each command
+    /// @param msgSender The address of the msg.sender of the swap
+    /// @param startBalance The initial balance of tokenStart
+    /// @return amountOut The amount of tokenOut received
+    /// @return gasEstimate The gas estimate for executing the commands
+    function quote(bytes calldata commands, bytes[] calldata inputs, address msgSender, uint256 startBalance)
         public
-        override
-        returns (uint256 tokenStartBalance_, uint256 amountOut, uint256 gasEstimate)
+        returns (uint256 amountOut, uint256 gasEstimate)
     {
-        // Set msg.sender in transient storage if we are not in a sub-plan.
-        if (!QuoterStateLib.isSubPlan()) _msgSender = msgSender_;
-
         // Accounting of state.
         State memory state;
-        state.tokenStart.balance = tokenStartBalance;
-        state.msgSender = msgSender();
+        state.tokenStart.balance = startBalance;
+        state.msgSender = msgSender;
 
+        // State gets updated when commands are quoted
+        quote(state, commands, inputs);
+
+        amountOut = state.tokenEnd.balance;
+        gasEstimate = state.gasUsage;
+    }
+
+    /// @inheritdoc QuoteDispatcher
+    function quote(State memory state, bytes calldata commands, bytes[] calldata inputs)
+        public
+        override
+        returns (State memory)
+    {
         // First tokenIn is by default tokenStart.
         state.tokenIn = state.tokenStart;
 
@@ -52,14 +68,12 @@ contract UniversalQuoter is IUniversalQuoter, QuoteDispatcher {
         for (uint256 commandIndex = 0; commandIndex < numCommands; commandIndex++) {
             bytes1 command = commands[commandIndex];
             bytes calldata input = inputs[commandIndex];
-            gasEstimate += dispatch(command, input, state);
+            dispatch(state, command, input);
         }
 
         // Validate end state.
         state.validateEndState();
 
-        // Return the amount of tokenOut.
-        tokenStartBalance_ = state.tokenStart.balance;
-        amountOut = state.tokenEnd.balance;
+        return state;
     }
 }

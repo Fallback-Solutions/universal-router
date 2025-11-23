@@ -1,26 +1,25 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.24;
 
-import {V3Path} from './V3Path.sol';
-import {BytesLib} from './BytesLib.sol';
-import {SafeCast} from '@uniswap/v3-core/contracts/libraries/SafeCast.sol';
-import {IUniswapV3Pool} from '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
-import {IUniswapV3SwapCallback} from '@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol';
 import {ActionConstants} from '@uniswap/v4-periphery/src/libraries/ActionConstants.sol';
 import {CalldataDecoder} from '@uniswap/v4-periphery/src/libraries/CalldataDecoder.sol';
-import {UniswapImmutables} from '../UniswapImmutables.sol';
-import {ERC20} from 'solmate/src/tokens/ERC20.sol';
+import {IUniswapV3Pool} from '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
+import {IUniswapV3SwapCallback} from '@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol';
 import {MetaDexImmutables} from '../../meta-dex/MetaDexImmutables.sol';
 import {Protocols} from '../../../libraries/Protocols.sol';
+import {QuoterRevert} from '@uniswap/v4-periphery/src/libraries/QuoterRevert.sol';
 import {QuoterStateLib, State} from '../../../libraries/QuoterState.sol';
+import {SafeCast} from '@uniswap/v3-core/contracts/libraries/SafeCast.sol';
+import {UniswapImmutables} from '../UniswapImmutables.sol';
+import {V3Path} from './V3Path.sol';
 
 /// @title Router for Uniswap v3 Trades
 abstract contract V3SwapQuoter is UniswapImmutables, IUniswapV3SwapCallback, MetaDexImmutables {
-    using V3Path for bytes;
-    using BytesLib for bytes;
     using CalldataDecoder for bytes;
-    using SafeCast for uint256;
     using QuoterStateLib for State;
+    using QuoterRevert for *;
+    using SafeCast for uint256;
+    using V3Path for bytes;
 
     /// @dev Transient storage variable used to check a safety condition in exact output swaps.
     uint256 private amountOutCached;
@@ -52,32 +51,12 @@ abstract contract V3SwapQuoter is UniswapImmutables, IUniswapV3SwapCallback, Met
             : (tokenOut < tokenIn, uint256(amount1Delta), uint256(-amount0Delta));
 
         if (isExactInput) {
-            assembly {
-                let ptr := mload(0x40)
-                mstore(ptr, amountReceived)
-                revert(ptr, 32)
-            }
+            amountReceived.revertQuote();
         } else {
             // if the cache has been populated, ensure that the full output amount has been received
             if (amountOutCached != 0) require(amountReceived == amountOutCached);
-            assembly {
-                let ptr := mload(0x40)
-                mstore(ptr, amountToPay)
-                revert(ptr, 32)
-            }
+            amountToPay.revertQuote();
         }
-    }
-
-    /// @dev Parses a revert reason that should contain the numeric quote
-    function parseRevertReason(bytes memory reason) private pure returns (uint256 amount) {
-        if (reason.length != 32) {
-            if (reason.length < 68) revert('Unexpected error');
-            assembly {
-                reason := add(reason, 0x04)
-            }
-            revert(abi.decode(reason, (string)));
-        }
-        amount = abi.decode(reason, (uint256));
     }
 
     function v3QuoteExactInput(
@@ -86,7 +65,7 @@ abstract contract V3SwapQuoter is UniswapImmutables, IUniswapV3SwapCallback, Met
         uint256 amountIn,
         bytes calldata path,
         uint256 protocol
-    ) internal returns (uint256 gasEstimate) {
+    ) internal {
         address tokenIn = path.decodeFirstToken();
         if (amountIn == ActionConstants.CONTRACT_BALANCE) {
             amountIn = state.debitTokenInBalance(tokenIn);
@@ -96,12 +75,11 @@ abstract contract V3SwapQuoter is UniswapImmutables, IUniswapV3SwapCallback, Met
 
         uint256 amountOut;
         while (true) {
-            (uint256 amountOut_, uint256 gasEstimate_) =
-                _quote(amountIn.toInt256(), path.getFirstPool(), true, protocol);
+            (uint256 amountOut_, uint256 gasEstimate) = _quote(amountIn.toInt256(), path.getFirstPool(), true, protocol);
 
             // the outputs of prior swaps become the inputs to subsequent ones
             amountIn = amountOut_;
-            gasEstimate += gasEstimate_;
+            state.addGas(gasEstimate);
 
             // decide whether to continue or terminate
             if (path.hasMultiplePools()) {
@@ -122,7 +100,7 @@ abstract contract V3SwapQuoter is UniswapImmutables, IUniswapV3SwapCallback, Met
         uint256 amountOut,
         bytes calldata path,
         uint256 protocol
-    ) public returns (uint256 gasEstimate) {
+    ) public {
         address tokenOut = path.decodeFirstToken();
         state.creditRecipient(tokenOut, amountOut, recipient);
 
@@ -130,14 +108,14 @@ abstract contract V3SwapQuoter is UniswapImmutables, IUniswapV3SwapCallback, Met
         while (true) {
             // Cache the output amount for comparison in the swap callback
             amountOutCached = amountOut;
-            (uint256 amountIn_, uint256 gasEstimate_) =
+            (uint256 amountIn_, uint256 gasEstimate) =
                 _quote(-amountOut.toInt256(), path.getFirstPool(), false, protocol);
             // clear cache
             delete amountOutCached;
 
             // the inputs of prior swaps become the outputs of subsequent ones
             amountOut = amountIn_;
-            gasEstimate += gasEstimate_;
+            state.addGas(gasEstimate);
 
             // decide whether to continue or terminate
             if (path.hasMultiplePools()) {
@@ -174,7 +152,7 @@ abstract contract V3SwapQuoter is UniswapImmutables, IUniswapV3SwapCallback, Met
             ) {}
         catch (bytes memory reason) {
             gasEstimate = gasBefore - gasleft();
-            amount_ = parseRevertReason(reason);
+            amount_ = reason.parseQuoteAmount();
         }
     }
 

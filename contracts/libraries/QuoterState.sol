@@ -1,17 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.24;
 
+import {ActionConstants} from '@uniswap/v4-periphery/src/libraries/ActionConstants.sol';
+
 struct State {
-    // Initial start tokenIn being sold.
+    // The msg.sender of the swap.
+    address msgSender;
+    // The estimate of the gas usage of the swap.
+    uint256 gasUsage;
+    // The Initial tokenIn being sold.
     Token tokenStart;
-    // The current tokenIn (can be the start tokenIn or an intermediate token).
+    // The current tokenIn (can be the initial tokenIn or an intermediate tokenIn).
     Token tokenIn;
-    // The current tokenOut (can be the end tokenOut, transferred to msg.sender, or an intermediate token).
+    // The current tokenOut (can be the final tokenOut, transferred to msg.sender, or an intermediate token).
     Token tokenOut;
     // The final tokenOut send back to msg.sender.
     Token tokenEnd;
-    // The msg.sender of the swap.
-    address msgSender;
 }
 
 struct Token {
@@ -20,11 +24,14 @@ struct Token {
 }
 
 library QuoterStateLib {
+    using QuoterStateLib for State;
+
     error BalanceTooLow();
     error InvalidNextToken();
     error InvalidReceiver();
     error InvalidTokenEnd();
     error InvalidTokenIn();
+    error InvalidTokenStart();
     error NotDuringSubPlan();
     error TokenEndNotTransferred();
     error TokenInNotConsumed();
@@ -32,6 +39,19 @@ library QuoterStateLib {
 
     function isSubPlan() internal view returns (bool) {
         return msg.sender == address(this);
+    }
+
+    function addGas(State memory state, uint256 gasEstimate) internal pure {
+        state.gasUsage += gasEstimate;
+    }
+
+    function addGasERC20Transfer(State memory state) internal pure {
+        // Gas estimate is the worst case erc20-transfer cost (cold sstore).
+        state.addGas(20_000);
+    }
+
+    function validateTokenStart(State memory state, address token) internal pure {
+        if (state.tokenStart.token != token) revert InvalidTokenStart();
     }
 
     function validateTokenIn(State memory state, address token) internal view {
@@ -67,9 +87,6 @@ library QuoterStateLib {
     }
 
     function debitTokenInBalance(State memory state, address token) internal view returns (uint256 balance) {
-        // Using the full balance is not allowed in sub plans.
-        if (isSubPlan()) revert NotDuringSubPlan();
-
         validateTokenIn(state, token);
 
         // Debit the the full tokenIn balance.
@@ -141,13 +158,17 @@ library QuoterStateLib {
     }
 
     function creditRecipient(State memory state, address token, uint256 amount, address recipient) internal view {
-        if (recipient == address(this)) creditTokenOut(state, token, amount);
-        else if (recipient == state.msgSender) creditTokenEnd(state, token, amount);
-        else revert InvalidReceiver();
+        if (recipient == address(this) || recipient == ActionConstants.ADDRESS_THIS) {
+            creditTokenOut(state, token, amount);
+        } else if (recipient == state.msgSender || recipient == ActionConstants.MSG_SENDER) {
+            creditTokenEnd(state, token, amount);
+        } else {
+            revert InvalidReceiver();
+        }
     }
 
     function sweep(State memory state, address token, address recipient) internal view {
-        if (recipient != state.msgSender) revert InvalidReceiver();
+        if (!(recipient == state.msgSender || recipient == ActionConstants.MSG_SENDER)) revert InvalidReceiver();
 
         uint256 amount = debitTokenOutBalance(state, token);
         creditTokenEnd(state, token, amount);
@@ -184,5 +205,24 @@ library QuoterStateLib {
 
         // TokenEnd must be transferred to msg.sender.
         if (state.tokenEnd.balance == 0) revert TokenEndNotTransferred();
+    }
+
+    function update(State memory state, State memory newState) internal view {
+        // newState must be the result from a finished sub plan.
+        validateEndState(newState);
+
+        // Update balance TokenStart.
+        state.validateTokenStart(newState.tokenStart.token);
+        state.tokenStart.balance = newState.tokenStart.balance;
+
+        // Balance for TokenIn is either zero, or tokenIn is the same as tokenStart.
+        // Balance for TokenOut is zero.
+
+        // Update balance TokenEnd.
+        state.validateTokenEnd(newState.tokenEnd.token);
+        state.tokenEnd.balance = newState.tokenEnd.balance;
+
+        // Update gas usage.
+        state.gasUsage = newState.gasUsage;
     }
 }

@@ -33,7 +33,7 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
 
     constructor(address _poolManager) BaseV4Quoter(IPoolManager(_poolManager)) {}
 
-    function _quoteActions(State memory routerState, bytes calldata data) internal returns (uint256 gasEstimate) {
+    function _quoteActions(State memory routerState, bytes calldata data) internal {
         // abi.decode(data, (bytes, bytes[]));
         (bytes calldata actions, bytes[] calldata params) = data.decodeActionsRouterParams();
 
@@ -45,12 +45,14 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
 
         for (uint256 actionIndex = 0; actionIndex < numActions; actionIndex++) {
             uint256 action = uint8(actions[actionIndex]);
-
-            gasEstimate += _handleAction(routerState, poolManagerState, action, params[actionIndex]);
+            _handleAction(routerState, poolManagerState, action, params[actionIndex]);
         }
 
         // Check that no balances remain on the poolManager at the end of the actions.
         poolManagerState.validateEndState();
+
+        // Add gas usage during pool manager actions to the gas usage of the router.
+        routerState.addGas(poolManagerState.gasUsage);
     }
 
     /// @dev Corresponding quoter logic for V4Router.sol
@@ -59,21 +61,21 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
         State memory poolManagerState,
         uint256 action,
         bytes calldata params
-    ) internal returns (uint256 gasEstimate) {
+    ) internal {
         // swap actions and payment actions in different blocks for gas efficiency
         if (action < Actions.SETTLE) {
             if (action == Actions.SWAP_EXACT_IN) {
                 IV4Router.ExactInputParams calldata swapParams = params.decodeSwapExactInParams();
-                gasEstimate = v4QuoteExactInput(
+                v4QuoteExactInput(
                     poolManagerState,
                     IV4Quoter.QuoteExactParams({
                         exactCurrency: swapParams.currencyIn, path: swapParams.path, exactAmount: swapParams.amountIn
                     })
                 );
-                return gasEstimate;
+                return;
             } else if (action == Actions.SWAP_EXACT_IN_SINGLE) {
                 IV4Router.ExactInputSingleParams calldata swapParams = params.decodeSwapExactInSingleParams();
-                gasEstimate = v4QuoteExactInputSingle(
+                v4QuoteExactInputSingle(
                     poolManagerState,
                     IV4Quoter.QuoteExactSingleParams({
                         poolKey: swapParams.poolKey,
@@ -82,19 +84,19 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
                         hookData: swapParams.hookData
                     })
                 );
-                return gasEstimate;
+                return;
             } else if (action == Actions.SWAP_EXACT_OUT) {
                 IV4Router.ExactOutputParams calldata swapParams = params.decodeSwapExactOutParams();
-                gasEstimate = v4QuoteExactOutput(
+                v4QuoteExactOutput(
                     poolManagerState,
                     IV4Quoter.QuoteExactParams({
                         exactCurrency: swapParams.currencyOut, path: swapParams.path, exactAmount: swapParams.amountOut
                     })
                 );
-                return gasEstimate;
+                return;
             } else if (action == Actions.SWAP_EXACT_OUT_SINGLE) {
                 IV4Router.ExactOutputSingleParams calldata swapParams = params.decodeSwapExactOutSingleParams();
-                gasEstimate = v4QuoteExactOutputSingle(
+                v4QuoteExactOutputSingle(
                     poolManagerState,
                     IV4Quoter.QuoteExactSingleParams({
                         poolKey: swapParams.poolKey,
@@ -103,7 +105,7 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
                         hookData: swapParams.hookData
                     })
                 );
-                return gasEstimate;
+                return;
             }
         } else {
             if (action == Actions.SETTLE_ALL) {
@@ -113,10 +115,10 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
                 (Currency currency,) = params.decodeCurrencyAndUint256();
                 uint256 amount = poolManagerState.debitTokenOutBalance(Currency.unwrap(currency));
                 poolManagerState.creditTokenEnd(Currency.unwrap(currency), amount);
+                poolManagerState.addGasERC20Transfer();
+
                 routerState.creditTokenEnd(Currency.unwrap(currency), amount);
-                // Gas estimate is the worst case erc20-transfer cost (cold sstore).
-                gasEstimate = 20_000;
-                return gasEstimate;
+                return;
             } else if (action == Actions.SETTLE) {
                 (Currency currency, uint256 amount, bool payerIsUser) = params.decodeCurrencyUint256AndBool();
                 // We currently can't track debt of the poolManager in the quoter.
@@ -130,9 +132,8 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
                     routerState.debitTokenIn(Currency.unwrap(currency), amount);
                 }
                 poolManagerState.creditTokenIn(Currency.unwrap(currency), amount);
-                // Gas estimate is the worst case erc20-transfer cost (cold sstore).
-                gasEstimate = 20_000;
-                return gasEstimate;
+                poolManagerState.addGasERC20Transfer();
+                return;
             } else if (action == Actions.TAKE) {
                 (Currency currency, address recipient, uint256 amount) = params.decodeCurrencyAddressAndUint256();
                 if (amount == ActionConstants.OPEN_DELTA) {
@@ -140,19 +141,20 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
                 }
                 poolManagerState.debitTokenOut(Currency.unwrap(currency), amount);
                 poolManagerState.creditTokenEnd(Currency.unwrap(currency), amount);
-                routerState.creditRecipient(Currency.unwrap(currency), amount, _mapRecipient(recipient));
-                // Gas estimate is the worst case erc20-transfer cost (cold sstore).
-                return gasEstimate;
+                poolManagerState.addGasERC20Transfer();
+
+                routerState.creditRecipient(Currency.unwrap(currency), amount, recipient);
+                return;
             } else if (action == Actions.TAKE_PORTION) {
                 (Currency currency, address recipient, uint256 bips) = params.decodeCurrencyAddressAndUint256();
                 uint256 balance = poolManagerState.getTokenOutBalance(Currency.unwrap(currency));
                 uint256 amount = balance.calculatePortion(bips);
                 poolManagerState.debitTokenOut(Currency.unwrap(currency), amount);
                 poolManagerState.creditTokenEnd(Currency.unwrap(currency), amount);
-                routerState.creditRecipient(Currency.unwrap(currency), amount, _mapRecipient(recipient));
-                // Gas estimate is the worst case erc20-transfer cost (cold sstore).
-                gasEstimate = 20_000;
-                return gasEstimate;
+                poolManagerState.addGasERC20Transfer();
+
+                routerState.creditRecipient(Currency.unwrap(currency), amount, recipient);
+                return;
             }
         }
         revert UnsupportedAction(action);
@@ -160,7 +162,6 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
 
     function v4QuoteExactInputSingle(State memory poolManagerState, IV4Quoter.QuoteExactSingleParams memory params)
         internal
-        returns (uint256 gasEstimate)
     {
         // Debit tokenIn.
         (address tokenIn, address tokenOut) = params.zeroForOne
@@ -175,7 +176,9 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
         uint256 gasBefore = gasleft();
         try poolManager.unlock(abi.encodeCall(this._quoteExactInputSingle, (params))) {}
         catch (bytes memory reason) {
-            gasEstimate = gasBefore - gasleft();
+            uint256 gasEstimate = gasBefore - gasleft();
+            poolManagerState.addGas(gasEstimate);
+
             // Extract the quote from QuoteSwap error, or throw if the quote failed
             uint256 amountOut = reason.parseQuoteAmount();
 
@@ -184,10 +187,7 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
         }
     }
 
-    function v4QuoteExactInput(State memory poolManagerState, IV4Quoter.QuoteExactParams memory params)
-        internal
-        returns (uint256 gasEstimate)
-    {
+    function v4QuoteExactInput(State memory poolManagerState, IV4Quoter.QuoteExactParams memory params) internal {
         // Debit tokenIn.
         address tokenIn = Currency.unwrap(params.exactCurrency);
         if (params.exactAmount == ActionConstants.OPEN_DELTA) {
@@ -199,7 +199,9 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
         uint256 gasBefore = gasleft();
         try poolManager.unlock(abi.encodeCall(this._quoteExactInput, (params))) {}
         catch (bytes memory reason) {
-            gasEstimate = gasBefore - gasleft();
+            uint256 gasEstimate = gasBefore - gasleft();
+            poolManagerState.addGas(gasEstimate);
+
             // Extract the quote from QuoteSwap error, or throw if the quote failed
             uint256 amountOut = reason.parseQuoteAmount();
 
@@ -211,7 +213,6 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
 
     function v4QuoteExactOutputSingle(State memory poolManagerState, IV4Quoter.QuoteExactSingleParams memory params)
         internal
-        returns (uint256 gasEstimate)
     {
         // Credit tokenOut.
         (address tokenIn, address tokenOut) = params.zeroForOne
@@ -223,7 +224,9 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
         uint256 gasBefore = gasleft();
         try poolManager.unlock(abi.encodeCall(this._quoteExactOutputSingle, (params))) {}
         catch (bytes memory reason) {
-            gasEstimate = gasBefore - gasleft();
+            uint256 gasEstimate = gasBefore - gasleft();
+            poolManagerState.addGas(gasEstimate);
+
             // Extract the quote from QuoteSwap error, or throw if the quote failed
             uint256 amountIn = reason.parseQuoteAmount();
 
@@ -232,10 +235,7 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
         }
     }
 
-    function v4QuoteExactOutput(State memory poolManagerState, IV4Quoter.QuoteExactParams memory params)
-        internal
-        returns (uint256 gasEstimate)
-    {
+    function v4QuoteExactOutput(State memory poolManagerState, IV4Quoter.QuoteExactParams memory params) internal {
         // Credit tokenOut.
         address tokenOut = Currency.unwrap(params.exactCurrency);
         poolManagerState.creditTokenOut(tokenOut, params.exactAmount);
@@ -244,7 +244,9 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
         uint256 gasBefore = gasleft();
         try poolManager.unlock(abi.encodeCall(this._quoteExactOutput, (params))) {}
         catch (bytes memory reason) {
-            gasEstimate = gasBefore - gasleft();
+            uint256 gasEstimate = gasBefore - gasleft();
+            poolManagerState.addGas(gasEstimate);
+
             // Extract the quote from QuoteSwap error, or throw if the quote failed
             uint256 amountIn = reason.parseQuoteAmount();
 
@@ -323,25 +325,5 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
         // the input delta of a swap is negative so we must flip it
         uint256 amountIn = params.zeroForOne ? uint128(-swapDelta.amount0()) : uint128(-swapDelta.amount1());
         amountIn.revertQuote();
-    }
-
-    /// @notice function that returns address considered executor of the actions
-    /// @dev The other context functions, _msgData and _msgValue, are not supported by this contract
-    /// In many contracts this will be the address that calls the initial entry point that calls `_executeActions`
-    /// `msg.sender` shouldn't be used, as this will be the v4 pool manager contract that calls `unlockCallback`
-    /// If using ReentrancyLock.sol, this function can return _getLocker()
-    /// @dev Corresponding quoter logic for BaseActionsRouter.sol
-    function msgSender() public view virtual returns (address);
-
-    /// @notice Calculates the address for a action
-    /// @dev Corresponding quoter logic for BaseActionsRouter.sol
-    function _mapRecipient(address recipient) internal view returns (address) {
-        if (recipient == ActionConstants.MSG_SENDER) {
-            return msgSender();
-        } else if (recipient == ActionConstants.ADDRESS_THIS) {
-            return address(this);
-        } else {
-            return recipient;
-        }
     }
 }

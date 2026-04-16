@@ -30,7 +30,9 @@ contract UniversalRouter is IUniversalRouter, ChainedActions, RouteSigner, Dispa
                 params.slipstreamV1Factory,
                 params.slipstreamV1InitCodeHash,
                 params.slipstreamV2Factory,
-                params.slipstreamV2InitCodeHash
+                params.slipstreamV2InitCodeHash,
+                params.slipstreamV3Factory,
+                params.slipstreamV3InitCodeHash
             ))
         EIP712('UniversalRouter FB', '1')
     {}

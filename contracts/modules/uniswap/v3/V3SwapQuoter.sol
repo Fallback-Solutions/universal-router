@@ -179,6 +179,7 @@ abstract contract V3SwapQuoter is UniswapImmutables, IUniswapV3SwapCallback, Met
     function getFactoryAndInitCodeHash(uint256 protocol) private view returns (address factory, bytes32 initCodeHash) {
         if (protocol == Protocols.UNISWAP_V3) return (UNISWAP_V3_FACTORY, UNISWAP_V3_POOL_INIT_CODE_HASH);
         else if (protocol == Protocols.SLIPSTREAM_V1) return (SLIPSTREAM_V1_FACTORY, SLIPSTREAM_V1_POOL_INIT_CODE_HASH);
-        else return (SLIPSTREAM_V2_FACTORY, SLIPSTREAM_V2_POOL_INIT_CODE_HASH);
+        else if (protocol == Protocols.SLIPSTREAM_V2) return (SLIPSTREAM_V2_FACTORY, SLIPSTREAM_V2_POOL_INIT_CODE_HASH);
+        else return (SLIPSTREAM_V3_FACTORY, SLIPSTREAM_V3_POOL_INIT_CODE_HASH);
     }
 }

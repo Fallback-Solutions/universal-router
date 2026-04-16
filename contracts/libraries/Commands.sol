@@ -58,4 +58,6 @@ library Commands {
     uint256 constant SLIPSTREAM_V1_SWAP_EXACT_OUT = 0x58;
     uint256 constant SLIPSTREAM_V2_SWAP_EXACT_IN = 0x59;
     uint256 constant SLIPSTREAM_V2_SWAP_EXACT_OUT = 0x5a;
+    uint256 constant SLIPSTREAM_V3_SWAP_EXACT_IN = 0x5b;
+    uint256 constant SLIPSTREAM_V3_SWAP_EXACT_OUT = 0x5c;
 }

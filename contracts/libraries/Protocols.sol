@@ -15,5 +15,6 @@ library Protocols {
     uint256 constant VELODROME = 0x40;
     uint256 constant SLIPSTREAM_V1 = 0x41;
     uint256 constant SLIPSTREAM_V2 = 0x42;
-    // COMMAND_PLACEHOLDER = 0x43
+    uint256 constant SLIPSTREAM_V3 = 0x43;
+    // COMMAND_PLACEHOLDER = 0x44
 }

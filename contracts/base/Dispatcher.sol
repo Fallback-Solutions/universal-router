@@ -294,8 +294,12 @@ abstract contract Dispatcher is
                     v3SwapExactInput(Protocols.SLIPSTREAM_V2, inputs);
                 } else if (command == Commands.SLIPSTREAM_V2_SWAP_EXACT_OUT) {
                     v3SwapExactOutput(Protocols.SLIPSTREAM_V2, inputs);
+                } else if (command == Commands.SLIPSTREAM_V3_SWAP_EXACT_IN) {
+                    v3SwapExactInput(Protocols.SLIPSTREAM_V3, inputs);
+                } else if (command == Commands.SLIPSTREAM_V3_SWAP_EXACT_OUT) {
+                    v3SwapExactOutput(Protocols.SLIPSTREAM_V3, inputs);
                 } else {
-                    // placeholder area for commands 0x5b-0x5f
+                    // placeholder area for commands 0x5d-0x5f
                     revert InvalidCommandType(command);
                 }
             }

@@ -25,7 +25,9 @@ contract UniversalQuoter is IUniversalQuoter, QuoteDispatcher {
                 params.slipstreamV1Factory,
                 params.slipstreamV1InitCodeHash,
                 params.slipstreamV2Factory,
-                params.slipstreamV2InitCodeHash
+                params.slipstreamV2InitCodeHash,
+                params.slipstreamV3Factory,
+                params.slipstreamV3InitCodeHash
             ))
     {}
 

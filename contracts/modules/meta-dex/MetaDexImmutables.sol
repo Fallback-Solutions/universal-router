@@ -8,6 +8,8 @@ struct MetaDexParameters {
     bytes32 slipstreamV1InitCodeHash;
     address slipstreamV2Factory;
     bytes32 slipstreamV2InitCodeHash;
+    address slipstreamV3Factory;
+    bytes32 slipstreamV3InitCodeHash;
 }
 
 contract MetaDexImmutables {
@@ -29,6 +31,12 @@ contract MetaDexImmutables {
     /// @notice The slipstreamV2 Pool initcodehash
     bytes32 internal immutable SLIPSTREAM_V2_POOL_INIT_CODE_HASH;
 
+    /// @notice The address of slipstreamV3 Factory
+    address internal immutable SLIPSTREAM_V3_FACTORY;
+
+    /// @notice The slipstreamV3 Pool initcodehash
+    bytes32 internal immutable SLIPSTREAM_V3_POOL_INIT_CODE_HASH;
+
     constructor(MetaDexParameters memory params) {
         VELODROME_FACTORY = params.velodromeFactory;
         VELODROME_PAIR_INIT_CODE_HASH = params.velodromeInitCodeHash;
@@ -36,5 +44,7 @@ contract MetaDexImmutables {
         SLIPSTREAM_V1_POOL_INIT_CODE_HASH = params.slipstreamV1InitCodeHash;
         SLIPSTREAM_V2_FACTORY = params.slipstreamV2Factory;
         SLIPSTREAM_V2_POOL_INIT_CODE_HASH = params.slipstreamV2InitCodeHash;
+        SLIPSTREAM_V3_FACTORY = params.slipstreamV3Factory;
+        SLIPSTREAM_V3_POOL_INIT_CODE_HASH = params.slipstreamV3InitCodeHash;
     }
 }

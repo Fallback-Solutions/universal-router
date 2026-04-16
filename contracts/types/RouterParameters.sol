@@ -23,4 +23,6 @@ struct RouterParameters {
     bytes32 slipstreamV1InitCodeHash;
     address slipstreamV2Factory;
     bytes32 slipstreamV2InitCodeHash;
+    address slipstreamV3Factory;
+    bytes32 slipstreamV3InitCodeHash;
 }

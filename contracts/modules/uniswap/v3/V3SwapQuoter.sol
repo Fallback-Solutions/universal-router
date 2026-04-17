@@ -100,7 +100,7 @@ abstract contract V3SwapQuoter is UniswapImmutables, IUniswapV3SwapCallback, Met
         uint256 amountOut,
         bytes calldata path,
         uint256 protocol
-    ) public {
+    ) internal {
         address tokenOut = path.decodeFirstToken();
         state.creditRecipient(tokenOut, amountOut, recipient);
 

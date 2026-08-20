@@ -34,6 +34,7 @@ library QuoterStateLib {
     error BalanceTooLow();
     error FlashLoanNotRepaid();
     error MultipleFlashLoans();
+    error SegmentPaidMsgSender();
     error InvalidNextToken();
     error InvalidReceiver();
     error InvalidTokenEnd();
@@ -58,7 +59,7 @@ library QuoterStateLib {
     }
 
     function validateTokenStart(State memory state, address token) internal pure {
-        if (state.tokenStart.token != token) revert InvalidTokenStart();
+        if (!state.tokenStart.set || state.tokenStart.token != token) revert InvalidTokenStart();
     }
 
     function validateTokenIn(State memory state, address token) internal view {
@@ -66,10 +67,16 @@ library QuoterStateLib {
         if (state.tokenIn.set && token == state.tokenIn.token) {
             return;
         }
-        // If no tokenIn is set, set it to the given token.
+        // If no tokenIn is set, set it to the given token, and record it as the start of the
+        // path if that has not been established yet. Nothing else assigns tokenStart.token,
+        // so without this every comparison against it is meaningless.
         else if (!state.tokenIn.set) {
             state.tokenIn.token = token;
             state.tokenIn.set = true;
+            if (!state.tokenStart.set) {
+                state.tokenStart.token = token;
+                state.tokenStart.set = true;
+            }
         }
         // If tokenIn equals tokenOut, we have to move one iteration up in the swap path.
         else if (state.tokenOut.set && token == state.tokenOut.token) {
@@ -305,6 +312,18 @@ library QuoterStateLib {
             revert TokenInNotConsumed();
         }
         if (state.flashLoan.balance > 0) revert FlashLoanNotRepaid();
+    }
+
+    /// @dev SWEEP, and any v3 leg with recipient MSG_SENDER, credit tokenEnd inside a
+    /// sub-plan. Since the segment runs on a copy, merging only tokenIn and tokenOut would
+    /// drop that balance silently and under-report amountOut. Reject the shape instead.
+    function updateSegment(State memory state, State memory newState) internal view {
+        validateSegmentState(newState);
+        if (newState.tokenEnd.balance > 0) revert SegmentPaidMsgSender();
+
+        state.tokenIn = newState.tokenIn;
+        state.tokenOut = newState.tokenOut;
+        state.gasUsage = newState.gasUsage;
     }
 
     function update(State memory state, State memory newState) internal view {

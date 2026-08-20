@@ -29,6 +29,26 @@ abstract contract QuoteDispatcher is PaymentsImmutables, V3SwapQuoter, V4SwapQuo
         virtual
         returns (State memory);
 
+    /// @notice Quotes a partial plan that continues an open state
+    /// @param state The simulated state to continue
+    /// @param commands A set of concatenated commands, each 1 byte in length
+    /// @param inputs An array of byte strings containing abi encoded inputs for each command
+    /// @return state_ The simulated state after executing the commands
+    function quoteSegment(State memory state, bytes calldata commands, bytes[] calldata inputs)
+        external
+        virtual
+        returns (State memory state_);
+
+    /// @inheritdoc V4SwapQuoter
+    /// @dev The self-call is what keeps isSubPlan() true inside the segment.
+    function _quoteSegment(State memory state, bytes calldata commands, bytes[] calldata inputs)
+        internal
+        override
+        returns (State memory state_)
+    {
+        return QuoteDispatcher(address(this)).quoteSegment(state, commands, inputs);
+    }
+
     /// @notice Decodes and executes the given command with the given inputs
     /// @param state The simulated state of the Universal Router before executing the commands
     /// @param commandType The command type to execute

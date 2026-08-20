@@ -78,4 +78,20 @@ contract UniversalQuoter is IUniversalQuoter, QuoteDispatcher {
 
         return state;
     }
+
+    /// @inheritdoc QuoteDispatcher
+    function quoteSegment(State memory state, bytes calldata commands, bytes[] calldata inputs)
+        public
+        override
+        returns (State memory)
+    {
+        uint256 numCommands = commands.length;
+        if (inputs.length != numCommands) revert LengthMismatch();
+
+        for (uint256 commandIndex = 0; commandIndex < numCommands; commandIndex++) {
+            dispatch(state, commands[commandIndex], inputs[commandIndex]);
+        }
+
+        return state;
+    }
 }

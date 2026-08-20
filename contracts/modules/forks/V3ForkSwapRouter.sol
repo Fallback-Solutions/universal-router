@@ -59,8 +59,10 @@ abstract contract V3ForkSwapRouter is Permit2Payments {
             );
         V3ForkCallback.clear();
 
-        uint256 balanceAfter = ERC20(tokenOut).balanceOf(recipient);
-        uint256 amountOut = balanceAfter < balanceBefore ? 0 : balanceAfter - balanceBefore;
+        // Deliberately unguarded: a recipient whose balance went backwards is not a supported
+        // state, so checked arithmetic reverting is the right outcome rather than reporting a
+        // substituted zero.
+        uint256 amountOut = ERC20(tokenOut).balanceOf(recipient) - balanceBefore;
         if (amountOut < amountOutMinimum) revert V3ForkTooLittleReceived(amountOutMinimum, amountOut);
     }
 

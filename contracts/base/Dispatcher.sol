@@ -9,6 +9,7 @@ import {Payments} from '../modules/Payments.sol';
 import {PaymentsImmutables} from '../modules/PaymentsImmutables.sol';
 import {V3ToV4Migrator} from '../modules/V3ToV4Migrator.sol';
 import {Commands} from '../libraries/Commands.sol';
+import {FlashActions} from '../libraries/FlashActions.sol';
 import {Lock} from './Lock.sol';
 import {ERC20} from 'solmate/src/tokens/ERC20.sol';
 import {IAllowanceTransfer} from 'permit2/src/interfaces/IAllowanceTransfer.sol';
@@ -304,6 +305,27 @@ abstract contract Dispatcher is
                 }
             }
         }
+    }
+
+    /// @notice Handles this router's own v4 actions and delegates the rest to V4Router
+    /// @param action The v4 action to execute
+    /// @param params The encoded parameters for that action
+    /// @dev A sub-plan runs with the same msgSender() as the top-level plan, because Lock
+    /// allows self-reentrancy and msgSender() returns _getLocker()
+    function _handleAction(uint256 action, bytes calldata params) internal override {
+        if (action == FlashActions.EXECUTE_SUB_PLAN) {
+            (bytes calldata commands_, bytes[] calldata inputs_) = params.decodeCommandsAndInputs();
+            (bool success, bytes memory output) =
+                address(this).call(abi.encodeCall(Dispatcher.execute, (commands_, inputs_)));
+            if (!success) {
+                // Bubble verbatim so the failing leg reports its own error.
+                assembly ('memory-safe') {
+                    revert(add(output, 0x20), mload(output))
+                }
+            }
+            return;
+        }
+        super._handleAction(action, params);
     }
 
     /// @notice Decodes and executes the SwapExactInput command for Uniswap V3 type protocols, with the given inputs

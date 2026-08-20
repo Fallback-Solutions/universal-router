@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.24;
 
+import {V2ForkSwapRouter} from '../modules/forks/V2ForkSwapRouter.sol';
 import {V2SwapRouter} from '../modules/uniswap/v2/V2SwapRouter.sol';
 import {V3SwapRouter} from '../modules/uniswap/v3/V3SwapRouter.sol';
 import {V4SwapRouter} from '../modules/uniswap/v4/V4SwapRouter.sol';
@@ -25,6 +26,7 @@ import {Protocols} from '../libraries/Protocols.sol';
 abstract contract Dispatcher is
     Payments,
     V2SwapRouter,
+    V2ForkSwapRouter,
     V3SwapRouter,
     V4SwapRouter,
     V3ToV4Migrator,
@@ -284,8 +286,32 @@ abstract contract Dispatcher is
                     revert InvalidCommandType(command);
                 } else if (command == Commands.SLIPSTREAM_V1_SWAP_EXACT_IN) {
                     v3SwapExactInput(Protocols.SLIPSTREAM_V1, inputs);
+                } else if (command == Commands.V2_FORK_SWAP_EXACT_IN) {
+                    // equivalent: abi.decode(inputs, (address, uint256, uint256, address, address, address, uint256, bool))
+                    address recipient;
+                    uint256 amountIn;
+                    uint256 amountOutMin;
+                    address pair;
+                    address tokenIn;
+                    address tokenOut;
+                    uint256 feePips;
+                    bool payerIsUser;
+                    assembly {
+                        recipient := calldataload(inputs.offset)
+                        amountIn := calldataload(add(inputs.offset, 0x20))
+                        amountOutMin := calldataload(add(inputs.offset, 0x40))
+                        pair := calldataload(add(inputs.offset, 0x60))
+                        tokenIn := calldataload(add(inputs.offset, 0x80))
+                        tokenOut := calldataload(add(inputs.offset, 0xa0))
+                        feePips := calldataload(add(inputs.offset, 0xc0))
+                        payerIsUser := calldataload(add(inputs.offset, 0xe0))
+                    }
+                    address payer = payerIsUser ? msgSender() : address(this);
+                    v2ForkSwapExactInput(
+                        map(recipient), amountIn, amountOutMin, pair, tokenIn, tokenOut, feePips, payer
+                    );
                 } else {
-                    // placeholder area for commands 0x53-0x57
+                    // placeholder area for commands 0x54-0x57
                     revert InvalidCommandType(command);
                 }
             } else {

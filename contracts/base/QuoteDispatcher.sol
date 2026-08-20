@@ -133,8 +133,11 @@ abstract contract QuoteDispatcher is PaymentsImmutables, V3SwapQuoter, V4SwapQuo
                     revert InvalidCommandType(command);
                 } else if (command == Commands.SLIPSTREAM_V1_SWAP_EXACT_IN) {
                     v3QuoteExactInput(state, Protocols.SLIPSTREAM_V1, inputs);
+                } else if (command == Commands.V2_FORK_SWAP_EXACT_IN) {
+                    // Pricing a caller-supplied pair needs its reserves at simulation time.
+                    revert InvalidCommandType(command);
                 } else {
-                    // placeholder area for commands 0x53-0x57
+                    // placeholder area for commands 0x54-0x57
                     revert InvalidCommandType(command);
                 }
             } else {

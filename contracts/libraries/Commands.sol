@@ -53,6 +53,7 @@ library Commands {
     uint256 constant VELODROME_SWAP_EXACT_OUT = 0x51;
     uint256 constant SLIPSTREAM_V1_SWAP_EXACT_IN = 0x52;
     uint256 constant V2_FORK_SWAP_EXACT_IN = 0x53;
+    uint256 constant V3_FORK_SWAP_EXACT_IN = 0x54;
 
     // Command Types where 0x58<=value<=0x5f
     // Used by FB

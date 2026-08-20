@@ -310,8 +310,28 @@ abstract contract Dispatcher is
                     v2ForkSwapExactInput(
                         map(recipient), amountIn, amountOutMin, pair, tokenIn, tokenOut, feePips, payer
                     );
+                } else if (command == Commands.V3_FORK_SWAP_EXACT_IN) {
+                    // equivalent: abi.decode(inputs, (address, uint256, uint256, address, address, address, bool))
+                    address recipient;
+                    uint256 amountIn;
+                    uint256 amountOutMin;
+                    address pool;
+                    address tokenIn;
+                    address tokenOut;
+                    bool payerIsUser;
+                    assembly {
+                        recipient := calldataload(inputs.offset)
+                        amountIn := calldataload(add(inputs.offset, 0x20))
+                        amountOutMin := calldataload(add(inputs.offset, 0x40))
+                        pool := calldataload(add(inputs.offset, 0x60))
+                        tokenIn := calldataload(add(inputs.offset, 0x80))
+                        tokenOut := calldataload(add(inputs.offset, 0xa0))
+                        payerIsUser := calldataload(add(inputs.offset, 0xc0))
+                    }
+                    address payer = payerIsUser ? msgSender() : address(this);
+                    v3ForkSwapExactInput(map(recipient), amountIn, amountOutMin, pool, tokenIn, tokenOut, payer);
                 } else {
-                    // placeholder area for commands 0x54-0x57
+                    // placeholder area for commands 0x55-0x57
                     revert InvalidCommandType(command);
                 }
             } else {

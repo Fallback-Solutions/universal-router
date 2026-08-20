@@ -16,7 +16,15 @@ contract DeployOptimism is DeployUniversalRouter {
             v4PoolManager: 0x9a13F98Cb987694C9F086b1F5eB990EeA8264Ec3,
             v3NFTPositionManager: 0xC36442b4a4522E871399CD717aBDD847Ab11FE88,
             v4PositionManager: 0x3C3Ea4B57a46241e54610e5f022E5c45859A1017,
-            spokePool: 0x6f26Bf09B1C792e3228e5467807a900A503c0281
+            spokePool: 0x6f26Bf09B1C792e3228e5467807a900A503c0281,
+            velodromeFactory: address(0),
+            velodromeInitCodeHash: bytes32(0),
+            slipstreamV1Factory: address(0),
+            slipstreamV1InitCodeHash: bytes32(0),
+            slipstreamV2Factory: address(0),
+            slipstreamV2InitCodeHash: bytes32(0),
+            slipstreamV3Factory: address(0),
+            slipstreamV3InitCodeHash: bytes32(0)
         });
 
         unsupported = 0x40d51104Da22E3e77b683894E7e3E12e8FC61E65;

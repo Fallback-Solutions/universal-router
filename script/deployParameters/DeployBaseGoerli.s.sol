@@ -16,7 +16,15 @@ contract DeployBaseGoerli is DeployUniversalRouter {
             v4PoolManager: address(0),
             v3NFTPositionManager: address(0),
             v4PositionManager: address(0),
-            spokePool: address(0)
+            spokePool: address(0),
+            velodromeFactory: address(0),
+            velodromeInitCodeHash: bytes32(0),
+            slipstreamV1Factory: address(0),
+            slipstreamV1InitCodeHash: bytes32(0),
+            slipstreamV2Factory: address(0),
+            slipstreamV2InitCodeHash: bytes32(0),
+            slipstreamV3Factory: address(0),
+            slipstreamV3InitCodeHash: bytes32(0)
         });
 
         unsupported = 0x7B46ee9BaB49bd5b37117494689A035b0F187B59;

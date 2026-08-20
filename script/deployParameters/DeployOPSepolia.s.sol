@@ -16,7 +16,15 @@ contract DeployOPSepolia is DeployUniversalRouter {
             v4PoolManager: 0xf7F5aB3DcA35e17dE187b459159BC643853B3c67,
             v3NFTPositionManager: 0x27F971cb582BF9E50F397e4d29a5C7A34f11faA2,
             v4PositionManager: 0x0B32f74f8365d535783949E014B7754047B64e31,
-            spokePool: 0x4e8E101924eDE233C13e2D8622DC8aED2872d505
+            spokePool: 0x4e8E101924eDE233C13e2D8622DC8aED2872d505,
+            velodromeFactory: address(0),
+            velodromeInitCodeHash: bytes32(0),
+            slipstreamV1Factory: address(0),
+            slipstreamV1InitCodeHash: bytes32(0),
+            slipstreamV2Factory: address(0),
+            slipstreamV2InitCodeHash: bytes32(0),
+            slipstreamV3Factory: address(0),
+            slipstreamV3InitCodeHash: bytes32(0)
         });
 
         unsupported = 0xFC885F37F5A9FA8159c8dBb907fc1b0C2fB31323;

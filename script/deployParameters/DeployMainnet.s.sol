@@ -16,7 +16,15 @@ contract DeployMainnet is DeployUniversalRouter {
             v4PoolManager: address(0),
             v3NFTPositionManager: 0xC36442b4a4522E871399CD717aBDD847Ab11FE88,
             v4PositionManager: address(0),
-            spokePool: 0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5
+            spokePool: 0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5,
+            velodromeFactory: address(0),
+            velodromeInitCodeHash: bytes32(0),
+            slipstreamV1Factory: address(0),
+            slipstreamV1InitCodeHash: bytes32(0),
+            slipstreamV2Factory: address(0),
+            slipstreamV2InitCodeHash: bytes32(0),
+            slipstreamV3Factory: address(0),
+            slipstreamV3InitCodeHash: bytes32(0)
         });
 
         unsupported = 0x76D631990d505E4e5b432EEDB852A60897824D68;

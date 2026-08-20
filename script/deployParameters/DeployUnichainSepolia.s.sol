@@ -16,7 +16,15 @@ contract DeployUnichainSepolia is DeployUniversalRouter {
             v4PoolManager: 0x9cB26A7183B2F4515945Dc52CB4195B0d2D06C95,
             v3NFTPositionManager: 0xB7F724d6dDDFd008eFf5cc2834edDE5F9eF0d075,
             v4PositionManager: 0x12A98709BB5D0641D61458f85dcAFbE17AC2d05c,
-            spokePool: 0x6999526e507Cc3b03b180BbE05E1Ff938259A874
+            spokePool: 0x6999526e507Cc3b03b180BbE05E1Ff938259A874,
+            velodromeFactory: address(0),
+            velodromeInitCodeHash: bytes32(0),
+            slipstreamV1Factory: address(0),
+            slipstreamV1InitCodeHash: bytes32(0),
+            slipstreamV2Factory: address(0),
+            slipstreamV2InitCodeHash: bytes32(0),
+            slipstreamV3Factory: address(0),
+            slipstreamV3InitCodeHash: bytes32(0)
         });
     }
 }

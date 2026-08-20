@@ -43,7 +43,15 @@ abstract contract DeployUniversalRouter is Script {
             v4PoolManager: mapUnsupported(params.v4PoolManager),
             v3NFTPositionManager: mapUnsupported(params.v3NFTPositionManager),
             v4PositionManager: mapUnsupported(params.v4PositionManager),
-            spokePool: mapUnsupported(params.spokePool)
+            spokePool: mapUnsupported(params.spokePool),
+            velodromeFactory: address(0),
+            velodromeInitCodeHash: bytes32(0),
+            slipstreamV1Factory: address(0),
+            slipstreamV1InitCodeHash: bytes32(0),
+            slipstreamV2Factory: address(0),
+            slipstreamV2InitCodeHash: bytes32(0),
+            slipstreamV3Factory: address(0),
+            slipstreamV3InitCodeHash: bytes32(0)
         });
 
         logParams();

@@ -16,7 +16,15 @@ contract DeployWorldchain is DeployUniversalRouter {
             v4PoolManager: 0xb1860D529182ac3BC1F51Fa2ABd56662b7D13f33,
             v3NFTPositionManager: 0xec12a9F9a09f50550686363766Cc153D03c27b5e,
             v4PositionManager: 0xC585E0f504613b5fBf874F21Af14c65260fB41fA,
-            spokePool: 0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64
+            spokePool: 0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64,
+            velodromeFactory: address(0),
+            velodromeInitCodeHash: bytes32(0),
+            slipstreamV1Factory: address(0),
+            slipstreamV1InitCodeHash: bytes32(0),
+            slipstreamV2Factory: address(0),
+            slipstreamV2InitCodeHash: bytes32(0),
+            slipstreamV3Factory: address(0),
+            slipstreamV3InitCodeHash: bytes32(0)
         });
     }
 }

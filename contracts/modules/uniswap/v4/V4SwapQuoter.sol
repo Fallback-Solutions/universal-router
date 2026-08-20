@@ -49,7 +49,7 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
         }
 
         // Check that no balances remain on the poolManager at the end of the actions.
-        poolManagerState.validateEndState();
+        poolManagerState.validateSegmentState();
 
         // Add gas usage during pool manager actions to the gas usage of the router.
         routerState.addGas(poolManagerState.gasUsage);
@@ -109,8 +109,13 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
             }
         } else {
             if (action == Actions.SETTLE_ALL) {
-                // We currently can't track debt of the poolManager in the quoter.
-                revert UnsupportedAction(Actions.SETTLE_ALL);
+                (Currency currency, uint256 maxAmount) = params.decodeCurrencyAndUint256();
+                uint256 amount = poolManagerState.flashLoanBalance(Currency.unwrap(currency));
+                if (amount == 0 || amount > maxAmount) revert UnsupportedAction(Actions.SETTLE_ALL);
+                routerState.debitTokenIn(Currency.unwrap(currency), amount);
+                poolManagerState.creditTokenIn(Currency.unwrap(currency), amount);
+                poolManagerState.addGasERC20Transfer();
+                return;
             } else if (action == Actions.TAKE_ALL) {
                 (Currency currency,) = params.decodeCurrencyAndUint256();
                 uint256 amount = poolManagerState.debitTokenOutBalance(Currency.unwrap(currency));
@@ -121,8 +126,13 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
                 return;
             } else if (action == Actions.SETTLE) {
                 (Currency currency, uint256 amount, bool payerIsUser) = params.decodeCurrencyUint256AndBool();
-                // We currently can't track debt of the poolManager in the quoter.
-                if (amount == ActionConstants.OPEN_DELTA) revert UnsupportedAction(ActionConstants.OPEN_DELTA);
+                if (amount == ActionConstants.OPEN_DELTA) {
+                    amount = poolManagerState.flashLoanBalance(Currency.unwrap(currency));
+                    // OPEN_DELTA is itself zero, so a currency with no recorded loan would
+                    // settle nothing here while the router settles its real debt. Reject
+                    // rather than report a number the router will not deliver.
+                    if (amount == 0) revert UnsupportedAction(Actions.SETTLE);
+                }
                 // Payer is Router Contract, we have to debit the amount from the routerState.
                 if (!payerIsUser) {
                     if (amount == ActionConstants.CONTRACT_BALANCE) {
@@ -139,8 +149,11 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
                 if (amount == ActionConstants.OPEN_DELTA) {
                     amount = poolManagerState.getTokenOutBalance(Currency.unwrap(currency));
                 }
-                poolManagerState.debitTokenOut(Currency.unwrap(currency), amount);
-                poolManagerState.creditTokenEnd(Currency.unwrap(currency), amount);
+                // The funds leave the vault, so this side records the debit and the debt and
+                // nothing else. Crediting it back here, which is what creditRecipient does for
+                // ADDRESS_THIS, would repay the borrow out of its own phantom credit and hide
+                // it from FlashLoanNotRepaid.
+                poolManagerState.debitTokenOutOrBorrow(Currency.unwrap(currency), amount);
                 poolManagerState.addGasERC20Transfer();
 
                 routerState.creditRecipient(Currency.unwrap(currency), amount, recipient);
@@ -149,8 +162,11 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
                 (Currency currency, address recipient, uint256 bips) = params.decodeCurrencyAddressAndUint256();
                 uint256 balance = poolManagerState.getTokenOutBalance(Currency.unwrap(currency));
                 uint256 amount = balance.calculatePortion(bips);
-                poolManagerState.debitTokenOut(Currency.unwrap(currency), amount);
-                poolManagerState.creditTokenEnd(Currency.unwrap(currency), amount);
+                // The funds leave the vault, so this side records the debit and the debt and
+                // nothing else. Crediting it back here, which is what creditRecipient does for
+                // ADDRESS_THIS, would repay the borrow out of its own phantom credit and hide
+                // it from FlashLoanNotRepaid.
+                poolManagerState.debitTokenOutOrBorrow(Currency.unwrap(currency), amount);
                 poolManagerState.addGasERC20Transfer();
 
                 routerState.creditRecipient(Currency.unwrap(currency), amount, recipient);
@@ -170,7 +186,7 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
         if (params.exactAmount == ActionConstants.OPEN_DELTA) {
             params.exactAmount = poolManagerState.getTokenInBalance(tokenIn).toUint128();
         }
-        poolManagerState.debitTokenIn(tokenIn, params.exactAmount);
+        poolManagerState.debitTokenInOrBorrow(tokenIn, params.exactAmount);
 
         // Do the swap.
         uint256 gasBefore = gasleft();
@@ -193,7 +209,7 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
         if (params.exactAmount == ActionConstants.OPEN_DELTA) {
             params.exactAmount = poolManagerState.getTokenInBalance(tokenIn).toUint128();
         }
-        poolManagerState.debitTokenIn(tokenIn, params.exactAmount);
+        poolManagerState.debitTokenInOrBorrow(tokenIn, params.exactAmount);
 
         // Do the swap.
         uint256 gasBefore = gasleft();
@@ -231,7 +247,7 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
             uint256 amountIn = reason.parseQuoteAmount();
 
             // Debit tokenIn.
-            poolManagerState.debitTokenIn(tokenIn, amountIn);
+            poolManagerState.debitTokenInOrBorrow(tokenIn, amountIn);
         }
     }
 
@@ -252,7 +268,7 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
 
             // Debit tokenIn.
             address tokenIn = Currency.unwrap(params.path[params.path.length - 1].intermediateCurrency);
-            poolManagerState.debitTokenIn(tokenIn, amountIn);
+            poolManagerState.debitTokenInOrBorrow(tokenIn, amountIn);
         }
     }
 

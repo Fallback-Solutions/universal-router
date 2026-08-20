@@ -16,17 +16,24 @@ struct State {
     Token tokenOut;
     // The final tokenOut send back to msg.sender.
     Token tokenEnd;
+    // The currency borrowed from the vault, and how much of it is still owed.
+    Token flashLoan;
 }
 
 struct Token {
     address token;
     uint256 balance;
+    // Whether `token` has been assigned. Needed because address(0) is the native currency,
+    // so it cannot double as an "unset" sentinel.
+    bool set;
 }
 
 library QuoterStateLib {
     using QuoterStateLib for State;
 
     error BalanceTooLow();
+    error FlashLoanNotRepaid();
+    error MultipleFlashLoans();
     error InvalidNextToken();
     error InvalidReceiver();
     error InvalidTokenEnd();
@@ -56,13 +63,22 @@ library QuoterStateLib {
 
     function validateTokenIn(State memory state, address token) internal view {
         // If token equals tokenIn, do nothing.
-        if (token == state.tokenIn.token) return;
+        if (state.tokenIn.set && token == state.tokenIn.token) {
+            return;
+        }
         // If no tokenIn is set, set it to the given token.
-        else if (state.tokenIn.token == address(0)) state.tokenIn.token = token;
+        else if (!state.tokenIn.set) {
+            state.tokenIn.token = token;
+            state.tokenIn.set = true;
+        }
         // If tokenIn equals tokenOut, we have to move one iteration up in the swap path.
-        else if (token == state.tokenOut.token) nextToken(state);
+        else if (state.tokenOut.set && token == state.tokenOut.token) {
+            nextToken(state);
+        }
         // Else, token is invalid.
-        else revert InvalidTokenIn();
+        else {
+            revert InvalidTokenIn();
+        }
     }
 
     function getTokenInBalance(State memory state, address token) internal view returns (uint256 balance) {
@@ -73,6 +89,8 @@ library QuoterStateLib {
 
     function creditTokenIn(State memory state, address token, uint256 amount) internal view {
         validateTokenIn(state, token);
+
+        amount = repay(state, token, amount);
 
         // Credit the amount to tokenIn balance.
         state.tokenIn.balance += amount;
@@ -86,6 +104,60 @@ library QuoterStateLib {
         state.tokenIn.balance -= amount;
     }
 
+    /// @dev Only the v4 action handlers may borrow. The router's own balances are real ERC20
+    /// balances, where a shortfall is a bug rather than the vault lending.
+    function debitTokenInOrBorrow(State memory state, address token, uint256 amount) internal view {
+        validateTokenIn(state, token);
+
+        if (state.tokenIn.balance < amount) {
+            uint256 shortfall = amount - state.tokenIn.balance;
+            borrow(state, token, shortfall);
+            state.tokenIn.balance += shortfall;
+        }
+        state.tokenIn.balance -= amount;
+    }
+
+    function debitTokenOutOrBorrow(State memory state, address token, uint256 amount) internal view {
+        validateTokenOut(state, token);
+
+        if (state.tokenOut.balance < amount) {
+            uint256 shortfall = amount - state.tokenOut.balance;
+            borrow(state, token, shortfall);
+            state.tokenOut.balance += shortfall;
+        }
+        state.tokenOut.balance -= amount;
+    }
+
+    function flashLoanBalance(State memory state, address token) internal pure returns (uint256) {
+        return state.flashLoan.set && state.flashLoan.token == token ? state.flashLoan.balance : 0;
+    }
+
+    function borrow(State memory state, address token, uint256 amount) private pure {
+        if (!state.flashLoan.set) {
+            state.flashLoan.token = token;
+            state.flashLoan.set = true;
+        } else if (state.flashLoan.token != token) {
+            revert MultipleFlashLoans();
+        }
+        state.flashLoan.balance += amount;
+    }
+
+    /// @dev Applies an incoming amount to the outstanding loan and returns what is left over.
+    /// Mirrors CurrencyDelta.applyDelta, which keeps one net delta per currency and absorbs a
+    /// swap output against an outstanding negative with no settle involved, so netting on
+    /// every matching credit is the faithful model of runtime rather than an approximation.
+    function repay(State memory state, address token, uint256 amount) private pure returns (uint256) {
+        if (!state.flashLoan.set || state.flashLoan.token != token || state.flashLoan.balance == 0) {
+            return amount;
+        }
+
+        uint256 repaid = state.flashLoan.balance < amount ? state.flashLoan.balance : amount;
+        state.flashLoan.balance -= repaid;
+        // Release the slot so a later cycle may borrow a different currency.
+        if (state.flashLoan.balance == 0) state.flashLoan.set = false;
+        return amount - repaid;
+    }
+
     function debitTokenInBalance(State memory state, address token) internal view returns (uint256 balance) {
         validateTokenIn(state, token);
 
@@ -96,16 +168,18 @@ library QuoterStateLib {
 
     function validateTokenOut(State memory state, address token) internal view {
         // If token equals tokenOut, do nothing.
-        if (token == state.tokenOut.token) return;
+        if (state.tokenOut.set && token == state.tokenOut.token) return;
 
         // If no tokenOut is set, set it to the given token.
-        if (state.tokenOut.token == address(0)) {
+        if (!state.tokenOut.set) {
             state.tokenOut.token = token;
+            state.tokenOut.set = true;
         }
         // Else we have to move one iteration up in the swap path and set tokenOut.
         else {
             nextToken(state);
             state.tokenOut.token = token;
+            state.tokenOut.set = true;
         }
     }
 
@@ -117,6 +191,8 @@ library QuoterStateLib {
 
     function creditTokenOut(State memory state, address token, uint256 amount) internal view {
         validateTokenOut(state, token);
+
+        amount = repay(state, token, amount);
 
         // Credit the amount to tokenOut balance.
         state.tokenOut.balance += amount;
@@ -140,14 +216,15 @@ library QuoterStateLib {
 
     function validateTokenEnd(State memory state, address token) internal view {
         // If token equals tokenEnd, do nothing.
-        if (token == state.tokenEnd.token) return;
+        if (state.tokenEnd.set && token == state.tokenEnd.token) return;
 
         // If equality does not hold, tokenEnd must not yet be set.
-        if (state.tokenEnd.token != address(0)) revert InvalidTokenEnd();
+        if (state.tokenEnd.set) revert InvalidTokenEnd();
 
         // If no tokenEnd is set, it must be equal to tokenOut.
         validateTokenOut(state, token);
         state.tokenEnd.token = token;
+        state.tokenEnd.set = true;
     }
 
     function creditTokenEnd(State memory state, address token, uint256 amount) internal view {
@@ -179,11 +256,16 @@ library QuoterStateLib {
     /// or in the case of a Sub Plan, if tokenIn is not fully consumed, it must be tokenStart.
     function nextToken(State memory state) internal view {
         // tokenOut cannot be tokenEnd
-        if (state.tokenOut.token == state.tokenEnd.token) revert InvalidNextToken();
+        if (state.tokenOut.set && state.tokenEnd.set && state.tokenOut.token == state.tokenEnd.token) {
+            revert InvalidNextToken();
+        }
 
         // TokenIn must be consumed,
         // or in the case of a Sub Plan, tokenIn must be the first asset of the Sub Plan.
-        if (state.tokenIn.balance > 0 && !(isSubPlan() && state.tokenIn.token == state.tokenStart.token)) {
+        if (
+            state.tokenIn.balance > 0
+                && !(isSubPlan() && state.tokenStart.set && state.tokenIn.token == state.tokenStart.token)
+        ) {
             revert TokenInNotConsumed();
         }
 
@@ -199,12 +281,30 @@ library QuoterStateLib {
 
         // TokenIn must be consumed,
         // or in the case of a Sub Plan, tokenIn must be the first asset of the Sub Plan.
-        if (state.tokenIn.balance > 0 && !(isSubPlan() && state.tokenIn.token == state.tokenStart.token)) {
+        if (
+            state.tokenIn.balance > 0
+                && !(isSubPlan() && state.tokenStart.set && state.tokenIn.token == state.tokenStart.token)
+        ) {
             revert TokenInNotConsumed();
         }
 
+        // The vault must be made whole.
+        if (state.flashLoan.balance > 0) revert FlashLoanNotRepaid();
+
         // TokenEnd must be transferred to msg.sender.
         if (state.tokenEnd.balance == 0) revert TokenEndNotTransferred();
+    }
+
+    /// @dev A v4 action block, like a mid-lock sub-plan, need not end in a tokenEnd: a block
+    /// whose only exit is TAKE(ADDRESS_THIS) leaves the funds on the router.
+    function validateSegmentState(State memory state) internal view {
+        if (
+            state.tokenIn.balance > 0
+                && !(isSubPlan() && state.tokenStart.set && state.tokenIn.token == state.tokenStart.token)
+        ) {
+            revert TokenInNotConsumed();
+        }
+        if (state.flashLoan.balance > 0) revert FlashLoanNotRepaid();
     }
 
     function update(State memory state, State memory newState) internal view {

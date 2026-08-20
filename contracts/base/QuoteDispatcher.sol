@@ -156,8 +156,12 @@ abstract contract QuoteDispatcher is PaymentsImmutables, V3SwapQuoter, V4SwapQuo
                 } else if (command == Commands.V2_FORK_SWAP_EXACT_IN) {
                     // Pricing a caller-supplied pair needs its reserves at simulation time.
                     revert InvalidCommandType(command);
+                } else if (command == Commands.V3_FORK_SWAP_EXACT_IN) {
+                    // The quoting path derives the pool from a configured factory, and this
+                    // command supplies the pool instead.
+                    revert InvalidCommandType(command);
                 } else {
-                    // placeholder area for commands 0x54-0x57
+                    // placeholder area for commands 0x55-0x57
                     revert InvalidCommandType(command);
                 }
             } else {

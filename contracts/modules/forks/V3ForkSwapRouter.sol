@@ -84,6 +84,9 @@ abstract contract V3ForkSwapRouter is Permit2Payments {
 
         bool zeroIsInput = amount0Delta > 0;
         if (zeroIsInput == (amount1Delta > 0)) revert V3ForkWrongDirection();
+        // casting to 'uint256' is safe because the check above leaves exactly one delta
+        // positive, and the branch selects that one
+        // forge-lint: disable-next-line(unsafe-typecast)
         uint256 owed = zeroIsInput ? uint256(amount0Delta) : uint256(amount1Delta);
         if (owed > authorised) revert V3ForkOverCharged(authorised, owed);
 

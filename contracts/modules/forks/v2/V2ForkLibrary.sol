@@ -6,12 +6,12 @@ import {FullMath} from '@uniswap/v4-core/src/libraries/FullMath.sol';
 /// @title V2ForkLibrary
 /// @notice Constant-product swap math with the fee supplied per call
 library V2ForkLibrary {
-    /// @notice Fee denominator, so a 0.3% pair is 3000 and a PancakeSwap v2 pair is 2500
-    uint256 internal constant PIPS = 1_000_000;
-
     error EmptyReserves();
     error FeeTooHigh();
     error NoOutput();
+
+    /// @notice Fee denominator, so a 0.3% pair is 3000 and a PancakeSwap v2 pair is 2500
+    uint256 internal constant PIPS = 1_000_000;
 
     /// @notice Prices an exact-input leg against a constant-product pair
     /// @param amountIn The input amount, before the fee is applied

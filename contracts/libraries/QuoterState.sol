@@ -295,8 +295,7 @@ library QuoterStateLib {
     }
 
     function validateVaultState(State memory state) internal view {
-        // Any delta left on the vault reverts CurrencyNotSettled at lock close, so allowing one
-        // here would quote a plan that cannot execute.
+        // A delta left on the vault reverts CurrencyNotSettled at lock close.
         if (state.tokenOut.balance > 0) revert TokenOutNotConsumed();
         validateSegmentState(state);
     }

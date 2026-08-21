@@ -19,8 +19,7 @@ library V2ForkLibrary {
     /// @param reserveOut The pair's reserve of the output token
     /// @param feePips The pair's swap fee, in pips
     /// @return amountOut_ The output amount, rounded down
-    /// @dev Rounds down, so a stale fee under-quotes and the pair's own K check rejects it
-    /// rather than the pair overpaying
+    /// @dev Rounds down, so a stale fee under-quotes and the pair's K check rejects it
     function amountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut, uint256 feePips)
         internal
         pure

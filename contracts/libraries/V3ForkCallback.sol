@@ -2,8 +2,7 @@
 pragma solidity ^0.8.24;
 
 /// @title V3ForkCallback
-/// @notice The pool currently mid-swap and the amount it may collect, held transiently so
-/// its pay callback can be authenticated without deriving the pool from a factory
+/// @notice The pool mid-swap and the amount it may collect, held transiently
 library V3ForkCallback {
     // The slot holding the pool mid-swap, transiently. bytes32(uint256(keccak256('V3ForkCallback.pool')) - 1)
     bytes32 constant POOL_SLOT = 0x712607ba41259a31a78ec9b314ec0fa45c9b2ab661d656fe082114e93d145688;

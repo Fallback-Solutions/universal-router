@@ -46,7 +46,7 @@ abstract contract V3ForkSwapRouter is Permit2Payments {
         uint256 balanceBefore = ERC20(tokenOut).balanceOf(recipient);
 
         V3ForkCallback.set(pool, payer, tokenIn, amountIn);
-        // empty `data` is deliberate: a re-entering token finds the window cleared and reverts
+        // empty `data` is deliberate: a re-entering token falls through to derivation and reverts decoding it
         IUniswapV3Pool(pool)
             .swap(
                 recipient,

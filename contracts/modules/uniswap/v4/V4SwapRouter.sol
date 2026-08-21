@@ -26,7 +26,7 @@ abstract contract V4SwapRouter is V4Router, Permit2Payments {
     function _executeSubPlan(bytes calldata commands, bytes[] calldata inputs) internal virtual;
 
     /// @dev Actions owned by this router, the rest go to V4Router
-    function _handleAction(uint256 action, bytes calldata params) internal virtual override {
+    function _handleAction(uint256 action, bytes calldata params) internal override {
         if (action == V4RouterActions.EXECUTE_SUB_PLAN_ACTION) {
             (bytes calldata commands, bytes[] calldata inputs) = params.decodeCommandsAndInputs();
             _executeSubPlan(commands, inputs);

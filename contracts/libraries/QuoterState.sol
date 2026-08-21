@@ -294,6 +294,13 @@ library QuoterStateLib {
         if (state.tokenEnd.balance == 0) revert TokenEndNotTransferred();
     }
 
+    function validateVaultState(State memory state) internal view {
+        // Any delta left on the vault reverts CurrencyNotSettled at lock close, so allowing one
+        // here would quote a plan that cannot execute.
+        if (state.tokenOut.balance > 0) revert TokenOutNotConsumed();
+        validateSegmentState(state);
+    }
+
     function validateSegmentState(State memory state) internal view {
         // No tokenEnd required: a block exiting via TAKE(ADDRESS_THIS) leaves funds on the router.
         if (

@@ -52,7 +52,7 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
         }
 
         // Check that no balances remain on the poolManager at the end of the actions.
-        poolManagerState.validateVaultState();
+        poolManagerState.validatePoolManagerState();
 
         // Add gas usage during pool manager actions to the gas usage of the router.
         routerState.addGas(poolManagerState.gasUsage);

@@ -294,8 +294,8 @@ library QuoterStateLib {
         if (state.tokenEnd.balance == 0) revert TokenEndNotTransferred();
     }
 
-    function validateVaultState(State memory state) internal view {
-        // A delta left on the vault reverts CurrencyNotSettled at lock close.
+    function validatePoolManagerState(State memory state) internal view {
+        // A delta left on the pool manager reverts CurrencyNotSettled at lock close.
         if (state.tokenOut.balance > 0) revert TokenOutNotConsumed();
         validateSegmentState(state);
     }

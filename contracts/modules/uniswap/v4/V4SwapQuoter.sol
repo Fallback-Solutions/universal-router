@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {ActionConstants} from '@uniswap/v4-periphery/src/libraries/ActionConstants.sol';
 import {Actions} from '@uniswap/v4-periphery/src/libraries/Actions.sol';
 import {BytesLib} from '../../uniswap/v3/BytesLib.sol';
-import {FlashActions} from '../../../libraries/FlashActions.sol';
+import {V4RouterActions} from '../../../libraries/V4RouterActions.sol';
 import {BalanceDelta} from '@uniswap/v4-core/src/types/BalanceDelta.sol';
 import {BaseV4Quoter} from '@uniswap/v4-periphery/src/base/BaseV4Quoter.sol';
 import {BipsLibrary} from '@uniswap/v4-periphery/src/libraries/BipsLibrary.sol';
@@ -64,7 +64,7 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
     /// @param inputs An array of byte strings containing abi encoded inputs for each command
     /// @return state_ The simulated state after executing the commands
     /// @dev Implemented by QuoteDispatcher through a self-call, so isSubPlan() stays true
-    function _quoteSegment(State memory state, bytes calldata commands, bytes[] calldata inputs)
+    function _quoteSubPlan(State memory state, bytes calldata commands, bytes[] calldata inputs)
         internal
         virtual
         returns (State memory state_);
@@ -76,9 +76,9 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
         uint256 action,
         bytes calldata params
     ) internal {
-        if (action == FlashActions.EXECUTE_SUB_PLAN) {
+        if (action == V4RouterActions.EXECUTE_SUB_PLAN_ACTION) {
             (bytes calldata commands_, bytes[] calldata inputs_) = params.decodeCommandsAndInputs();
-            routerState.updateSegment(_quoteSegment(routerState, commands_, inputs_));
+            routerState.updateSegment(_quoteSubPlan(routerState, commands_, inputs_));
             return;
         }
 
@@ -148,9 +148,7 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
                 (Currency currency, uint256 amount, bool payerIsUser) = params.decodeCurrencyUint256AndBool();
                 if (amount == ActionConstants.OPEN_DELTA) {
                     amount = poolManagerState.flashLoanBalance(Currency.unwrap(currency));
-                    // OPEN_DELTA is itself zero, so a currency with no recorded loan would
-                    // settle nothing here while the router settles its real debt. Reject
-                    // rather than report a number the router will not deliver.
+                    // OPEN_DELTA is itself zero, so an unrecorded loan would settle nothing.
                     if (amount == 0) revert UnsupportedAction(Actions.SETTLE);
                 }
                 // Payer is Router Contract, we have to debit the amount from the routerState.
@@ -169,10 +167,7 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
                 if (amount == ActionConstants.OPEN_DELTA) {
                     amount = poolManagerState.getTokenOutBalance(Currency.unwrap(currency));
                 }
-                // The funds leave the vault, so this side records the debit and the debt and
-                // nothing else. Crediting it back here, which is what creditRecipient does for
-                // ADDRESS_THIS, would repay the borrow out of its own phantom credit and hide
-                // it from FlashLoanNotRepaid.
+                // Debit only: crediting back here would repay the borrow with its own credit.
                 poolManagerState.debitTokenOutOrBorrow(Currency.unwrap(currency), amount);
                 poolManagerState.addGasERC20Transfer();
 
@@ -182,10 +177,7 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
                 (Currency currency, address recipient, uint256 bips) = params.decodeCurrencyAddressAndUint256();
                 uint256 balance = poolManagerState.getTokenOutBalance(Currency.unwrap(currency));
                 uint256 amount = balance.calculatePortion(bips);
-                // The funds leave the vault, so this side records the debit and the debt and
-                // nothing else. Crediting it back here, which is what creditRecipient does for
-                // ADDRESS_THIS, would repay the borrow out of its own phantom credit and hide
-                // it from FlashLoanNotRepaid.
+                // Debit only: crediting back here would repay the borrow with its own credit.
                 poolManagerState.debitTokenOutOrBorrow(Currency.unwrap(currency), amount);
                 poolManagerState.addGasERC20Transfer();
 

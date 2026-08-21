@@ -80,7 +80,7 @@ contract UniversalQuoter is IUniversalQuoter, QuoteDispatcher {
     }
 
     /// @inheritdoc QuoteDispatcher
-    function quoteSegment(State memory state, bytes calldata commands, bytes[] calldata inputs)
+    function quoteSubPlan(State memory state, bytes calldata commands, bytes[] calldata inputs)
         public
         override
         returns (State memory)

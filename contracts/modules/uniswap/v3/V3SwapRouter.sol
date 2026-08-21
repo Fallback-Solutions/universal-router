@@ -9,7 +9,7 @@ import {IUniswapV3SwapCallback} from '@uniswap/v3-core/contracts/interfaces/call
 import {ActionConstants} from '@uniswap/v4-periphery/src/libraries/ActionConstants.sol';
 import {CalldataDecoder} from '@uniswap/v4-periphery/src/libraries/CalldataDecoder.sol';
 import {Permit2Payments} from '../../Permit2Payments.sol';
-import {V3ForkSwapRouter} from '../../forks/V3ForkSwapRouter.sol';
+import {V3ForkSwapRouter} from '../../forks/v3/V3ForkSwapRouter.sol';
 import {UniswapImmutables} from '../UniswapImmutables.sol';
 import {MaxInputAmount} from '../../../libraries/MaxInputAmount.sol';
 import {ERC20} from 'solmate/src/tokens/ERC20.sol';
@@ -34,7 +34,7 @@ abstract contract V3SwapRouter is
     error V3TooMuchRequested();
     error V3InvalidAmountOut();
     error V3InvalidCaller();
-    error InvalidProtocol(uint256 protocol);
+    error V3InvalidProtocol(uint256 protocol);
 
     /// @dev The minimum value that can be returned from #getSqrtRatioAtTick. Equivalent to getSqrtRatioAtTick(MIN_TICK)
     uint160 internal constant MIN_SQRT_RATIO = 4295128739;
@@ -59,8 +59,7 @@ abstract contract V3SwapRouter is
     /// @param amount0Delta The amount of token0 owed to the pool, when positive
     /// @param amount1Delta The amount of token1 owed to the pool, when positive
     /// @param data The path, payer and protocol encoded by the swap that opened this callback
-    /// @dev The fork window is checked first; when it is closed the caller must derive to a
-    /// configured factory's pool, which is what stops a stranger being paid
+    /// @dev Checks the fork window first, else the caller must derive to a known factory
     function _v3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) internal {
         if (amount0Delta <= 0 && amount1Delta <= 0) revert V3InvalidSwap(); // swaps entirely within 0-liquidity regions are not supported
         if (_payV3ForkPool(amount0Delta, amount1Delta)) return;
@@ -212,12 +211,7 @@ abstract contract V3SwapRouter is
         );
     }
 
-    /// @notice Resolves the CREATE2 inputs for a configured protocol
-    /// @param protocol The protocol id
-    /// @return factory The CREATE2 deployer of that protocol's pools
-    /// @return initCodeHash That protocol's pool init code hash
-    /// @dev Reverts on an unrecognised or unconfigured id. A bare else previously resolved
-    /// every unknown id to Slipstream V3, which silently swaps on the wrong venue.
+    /// @dev Reverts on an unrecognised or unconfigured id instead of defaulting to one
     function getFactoryAndInitCodeHash(uint256 protocol) private view returns (address factory, bytes32 initCodeHash) {
         if (protocol == Protocols.UNISWAP_V3) {
             (factory, initCodeHash) = (UNISWAP_V3_FACTORY, UNISWAP_V3_POOL_INIT_CODE_HASH);
@@ -228,9 +222,9 @@ abstract contract V3SwapRouter is
         } else if (protocol == Protocols.SLIPSTREAM_V3) {
             (factory, initCodeHash) = (SLIPSTREAM_V3_FACTORY, SLIPSTREAM_V3_POOL_INIT_CODE_HASH);
         } else {
-            revert InvalidProtocol(protocol);
+            revert V3InvalidProtocol(protocol);
         }
 
-        if (factory == address(0)) revert InvalidProtocol(protocol);
+        if (factory == address(0)) revert V3InvalidProtocol(protocol);
     }
 }

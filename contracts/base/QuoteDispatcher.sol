@@ -34,19 +34,18 @@ abstract contract QuoteDispatcher is PaymentsImmutables, V3SwapQuoter, V4SwapQuo
     /// @param commands A set of concatenated commands, each 1 byte in length
     /// @param inputs An array of byte strings containing abi encoded inputs for each command
     /// @return state_ The simulated state after executing the commands
-    function quoteSegment(State memory state, bytes calldata commands, bytes[] calldata inputs)
+    function quoteSubPlan(State memory state, bytes calldata commands, bytes[] calldata inputs)
         external
         virtual
         returns (State memory state_);
 
     /// @inheritdoc V4SwapQuoter
-    /// @dev The self-call is what keeps isSubPlan() true inside the segment.
-    function _quoteSegment(State memory state, bytes calldata commands, bytes[] calldata inputs)
+    function _quoteSubPlan(State memory state, bytes calldata commands, bytes[] calldata inputs)
         internal
         override
         returns (State memory state_)
     {
-        return QuoteDispatcher(address(this)).quoteSegment(state, commands, inputs);
+        return QuoteDispatcher(address(this)).quoteSubPlan(state, commands, inputs);
     }
 
     /// @notice Decodes and executes the given command with the given inputs
@@ -154,11 +153,8 @@ abstract contract QuoteDispatcher is PaymentsImmutables, V3SwapQuoter, V4SwapQuo
                 } else if (command == Commands.SLIPSTREAM_V1_SWAP_EXACT_IN) {
                     v3QuoteExactInput(state, Protocols.SLIPSTREAM_V1, inputs);
                 } else if (command == Commands.V2_FORK_SWAP_EXACT_IN) {
-                    // Pricing a caller-supplied pair needs its reserves at simulation time.
                     revert InvalidCommandType(command);
                 } else if (command == Commands.V3_FORK_SWAP_EXACT_IN) {
-                    // The quoting path derives the pool from a configured factory, and this
-                    // command supplies the pool instead.
                     revert InvalidCommandType(command);
                 } else {
                     // placeholder area for commands 0x55-0x57

@@ -16,15 +16,13 @@ struct State {
     Token tokenOut;
     // The final tokenOut send back to msg.sender.
     Token tokenEnd;
-    // The currency borrowed from the vault, and how much of it is still owed.
+    // The currency borrowed from the pool manager, and how much of it is still owed.
     Token flashLoan;
 }
 
 struct Token {
     address token;
     uint256 balance;
-    // Whether `token` has been assigned. Needed because address(0) is the native currency,
-    // so it cannot double as an "unset" sentinel.
     bool set;
 }
 
@@ -33,14 +31,14 @@ library QuoterStateLib {
 
     error BalanceTooLow();
     error FlashLoanNotRepaid();
-    error MultipleFlashLoans();
-    error SegmentPaidMsgSender();
     error InvalidNextToken();
     error InvalidReceiver();
     error InvalidTokenEnd();
     error InvalidTokenIn();
     error InvalidTokenStart();
+    error MultipleFlashLoans();
     error NotDuringSubPlan();
+    error SegmentPaidMsgSender();
     error TokenEndNotTransferred();
     error TokenInNotConsumed();
     error TokenOutNotConsumed();
@@ -67,9 +65,7 @@ library QuoterStateLib {
         if (state.tokenIn.set && token == state.tokenIn.token) {
             return;
         }
-        // If no tokenIn is set, set it to the given token, and record it as the start of the
-        // path if that has not been established yet. Nothing else assigns tokenStart.token,
-        // so without this every comparison against it is meaningless.
+        // No tokenIn yet: this token becomes tokenIn, and tokenStart too if that is still unset.
         else if (!state.tokenIn.set) {
             state.tokenIn.token = token;
             state.tokenIn.set = true;
@@ -111,11 +107,10 @@ library QuoterStateLib {
         state.tokenIn.balance -= amount;
     }
 
-    /// @dev Only the v4 action handlers may borrow. The router's own balances are real ERC20
-    /// balances, where a shortfall is a bug rather than the vault lending.
     function debitTokenInOrBorrow(State memory state, address token, uint256 amount) internal view {
         validateTokenIn(state, token);
 
+        // Pool-manager side only: a shortfall means it lent the difference. Use debitTokenIn otherwise.
         if (state.tokenIn.balance < amount) {
             uint256 shortfall = amount - state.tokenIn.balance;
             borrow(state, token, shortfall);
@@ -149,11 +144,8 @@ library QuoterStateLib {
         state.flashLoan.balance += amount;
     }
 
-    /// @dev Applies an incoming amount to the outstanding loan and returns what is left over.
-    /// Mirrors CurrencyDelta.applyDelta, which keeps one net delta per currency and absorbs a
-    /// swap output against an outstanding negative with no settle involved, so netting on
-    /// every matching credit is the faithful model of runtime rather than an approximation.
     function repay(State memory state, address token, uint256 amount) private pure returns (uint256) {
+        // Nets on every matching credit, not only at an explicit settle, as applyDelta does.
         if (!state.flashLoan.set || state.flashLoan.token != token || state.flashLoan.balance == 0) {
             return amount;
         }
@@ -295,32 +287,32 @@ library QuoterStateLib {
             revert TokenInNotConsumed();
         }
 
-        // The vault must be made whole.
+        // The pool manager must be repaid.
         if (state.flashLoan.balance > 0) revert FlashLoanNotRepaid();
 
         // TokenEnd must be transferred to msg.sender.
         if (state.tokenEnd.balance == 0) revert TokenEndNotTransferred();
     }
 
-    /// @dev A v4 action block, like a mid-lock sub-plan, need not end in a tokenEnd: a block
-    /// whose only exit is TAKE(ADDRESS_THIS) leaves the funds on the router.
     function validateSegmentState(State memory state) internal view {
+        // No tokenEnd required: a block exiting via TAKE(ADDRESS_THIS) leaves funds on the router.
         if (
             state.tokenIn.balance > 0
                 && !(isSubPlan() && state.tokenStart.set && state.tokenIn.token == state.tokenStart.token)
         ) {
             revert TokenInNotConsumed();
         }
+        // The pool manager must be repaid.
         if (state.flashLoan.balance > 0) revert FlashLoanNotRepaid();
     }
 
-    /// @dev SWEEP, and any v3 leg with recipient MSG_SENDER, credit tokenEnd inside a
-    /// sub-plan. Since the segment runs on a copy, merging only tokenIn and tokenOut would
-    /// drop that balance silently and under-report amountOut. Reject the shape instead.
     function updateSegment(State memory state, State memory newState) internal view {
         validateSegmentState(newState);
+
+        // SWEEP and v3 legs to MSG_SENDER credit tokenEnd, which a copy-back would drop.
         if (newState.tokenEnd.balance > 0) revert SegmentPaidMsgSender();
 
+        // flashLoan is not copied back: only the pool-manager state ever carries a loan.
         state.tokenIn = newState.tokenIn;
         state.tokenOut = newState.tokenOut;
         state.gasUsage = newState.gasUsage;

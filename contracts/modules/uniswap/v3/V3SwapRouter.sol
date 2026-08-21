@@ -9,6 +9,7 @@ import {IUniswapV3SwapCallback} from '@uniswap/v3-core/contracts/interfaces/call
 import {ActionConstants} from '@uniswap/v4-periphery/src/libraries/ActionConstants.sol';
 import {CalldataDecoder} from '@uniswap/v4-periphery/src/libraries/CalldataDecoder.sol';
 import {Permit2Payments} from '../../Permit2Payments.sol';
+import {V3ForkSwapRouter} from '../../forks/v3/V3ForkSwapRouter.sol';
 import {UniswapImmutables} from '../UniswapImmutables.sol';
 import {MaxInputAmount} from '../../../libraries/MaxInputAmount.sol';
 import {ERC20} from 'solmate/src/tokens/ERC20.sol';
@@ -16,7 +17,13 @@ import {MetaDexImmutables} from '../../meta-dex/MetaDexImmutables.sol';
 import {Protocols} from '../../../libraries/Protocols.sol';
 
 /// @title Router for Uniswap v3 Trades
-abstract contract V3SwapRouter is UniswapImmutables, Permit2Payments, IUniswapV3SwapCallback, MetaDexImmutables {
+abstract contract V3SwapRouter is
+    UniswapImmutables,
+    Permit2Payments,
+    V3ForkSwapRouter,
+    IUniswapV3SwapCallback,
+    MetaDexImmutables
+{
     using V3Path for bytes;
     using BytesLib for bytes;
     using CalldataDecoder for bytes;
@@ -27,6 +34,7 @@ abstract contract V3SwapRouter is UniswapImmutables, Permit2Payments, IUniswapV3
     error V3TooMuchRequested();
     error V3InvalidAmountOut();
     error V3InvalidCaller();
+    error V3InvalidProtocol(uint256 protocol);
 
     /// @dev The minimum value that can be returned from #getSqrtRatioAtTick. Equivalent to getSqrtRatioAtTick(MIN_TICK)
     uint160 internal constant MIN_SQRT_RATIO = 4295128739;
@@ -34,8 +42,27 @@ abstract contract V3SwapRouter is UniswapImmutables, Permit2Payments, IUniswapV3
     /// @dev The maximum value that can be returned from #getSqrtRatioAtTick. Equivalent to getSqrtRatioAtTick(MAX_TICK)
     uint160 internal constant MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
 
+    /// @inheritdoc IUniswapV3SwapCallback
     function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external {
+        _v3SwapCallback(amount0Delta, amount1Delta, data);
+    }
+
+    /// @notice PancakeSwap v3 pools call this name instead
+    /// @param amount0Delta The amount of token0 owed to the pool, when positive
+    /// @param amount1Delta The amount of token1 owed to the pool, when positive
+    /// @param data The path, payer and protocol encoded by the swap that opened this callback
+    function pancakeV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external {
+        _v3SwapCallback(amount0Delta, amount1Delta, data);
+    }
+
+    /// @notice Pays whichever pool is mid-swap
+    /// @param amount0Delta The amount of token0 owed to the pool, when positive
+    /// @param amount1Delta The amount of token1 owed to the pool, when positive
+    /// @param data The path, payer and protocol encoded by the swap that opened this callback
+    /// @dev Checks the fork window first, else the caller must derive to a known factory
+    function _v3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) internal {
         if (amount0Delta <= 0 && amount1Delta <= 0) revert V3InvalidSwap(); // swaps entirely within 0-liquidity regions are not supported
+        if (_payV3ForkPool(amount0Delta, amount1Delta)) return;
         (, address payer, uint256 protocol) = abi.decode(data, (bytes, address, uint256));
         bytes calldata path = data.toBytes(0);
 
@@ -184,10 +211,20 @@ abstract contract V3SwapRouter is UniswapImmutables, Permit2Payments, IUniswapV3
         );
     }
 
+    /// @dev Reverts on an unrecognised or unconfigured id instead of defaulting to one
     function getFactoryAndInitCodeHash(uint256 protocol) private view returns (address factory, bytes32 initCodeHash) {
-        if (protocol == Protocols.UNISWAP_V3) return (UNISWAP_V3_FACTORY, UNISWAP_V3_POOL_INIT_CODE_HASH);
-        else if (protocol == Protocols.SLIPSTREAM_V1) return (SLIPSTREAM_V1_FACTORY, SLIPSTREAM_V1_POOL_INIT_CODE_HASH);
-        else if (protocol == Protocols.SLIPSTREAM_V2) return (SLIPSTREAM_V2_FACTORY, SLIPSTREAM_V2_POOL_INIT_CODE_HASH);
-        else return (SLIPSTREAM_V3_FACTORY, SLIPSTREAM_V3_POOL_INIT_CODE_HASH);
+        if (protocol == Protocols.UNISWAP_V3) {
+            (factory, initCodeHash) = (UNISWAP_V3_FACTORY, UNISWAP_V3_POOL_INIT_CODE_HASH);
+        } else if (protocol == Protocols.SLIPSTREAM_V1) {
+            (factory, initCodeHash) = (SLIPSTREAM_V1_FACTORY, SLIPSTREAM_V1_POOL_INIT_CODE_HASH);
+        } else if (protocol == Protocols.SLIPSTREAM_V2) {
+            (factory, initCodeHash) = (SLIPSTREAM_V2_FACTORY, SLIPSTREAM_V2_POOL_INIT_CODE_HASH);
+        } else if (protocol == Protocols.SLIPSTREAM_V3) {
+            (factory, initCodeHash) = (SLIPSTREAM_V3_FACTORY, SLIPSTREAM_V3_POOL_INIT_CODE_HASH);
+        } else {
+            revert V3InvalidProtocol(protocol);
+        }
+
+        if (factory == address(0)) revert V3InvalidProtocol(protocol);
     }
 }

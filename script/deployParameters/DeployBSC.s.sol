@@ -16,7 +16,15 @@ contract DeployBSC is DeployUniversalRouter {
             v4PoolManager: 0x28e2Ea090877bF75740558f6BFB36A5ffeE9e9dF,
             v3NFTPositionManager: 0x7b8A01B39D58278b5DE7e48c8449c9f4F5170613,
             v4PositionManager: 0x7A4a5c919aE2541AeD11041A1AEeE68f1287f95b,
-            spokePool: 0x4e8E101924eDE233C13e2D8622DC8aED2872d505
+            spokePool: 0x4e8E101924eDE233C13e2D8622DC8aED2872d505,
+            velodromeFactory: address(0),
+            velodromeInitCodeHash: bytes32(0),
+            slipstreamV1Factory: address(0),
+            slipstreamV1InitCodeHash: bytes32(0),
+            slipstreamV2Factory: address(0),
+            slipstreamV2InitCodeHash: bytes32(0),
+            slipstreamV3Factory: address(0),
+            slipstreamV3InitCodeHash: bytes32(0)
         });
 
         unsupported = 0x5302086A3a25d473aAbBd0356eFf8Dd811a4d89B;

@@ -29,6 +29,25 @@ abstract contract QuoteDispatcher is PaymentsImmutables, V3SwapQuoter, V4SwapQuo
         virtual
         returns (State memory);
 
+    /// @notice Quotes a partial plan that continues an open state
+    /// @param state The simulated state to continue
+    /// @param commands A set of concatenated commands, each 1 byte in length
+    /// @param inputs An array of byte strings containing abi encoded inputs for each command
+    /// @return state_ The simulated state after executing the commands
+    function quoteSubPlan(State memory state, bytes calldata commands, bytes[] calldata inputs)
+        external
+        virtual
+        returns (State memory state_);
+
+    /// @inheritdoc V4SwapQuoter
+    function _quoteSubPlan(State memory state, bytes calldata commands, bytes[] calldata inputs)
+        internal
+        override
+        returns (State memory state_)
+    {
+        return QuoteDispatcher(address(this)).quoteSubPlan(state, commands, inputs);
+    }
+
     /// @notice Decodes and executes the given command with the given inputs
     /// @param state The simulated state of the Universal Router before executing the commands
     /// @param commandType The command type to execute
@@ -133,8 +152,12 @@ abstract contract QuoteDispatcher is PaymentsImmutables, V3SwapQuoter, V4SwapQuo
                     revert InvalidCommandType(command);
                 } else if (command == Commands.SLIPSTREAM_V1_SWAP_EXACT_IN) {
                     v3QuoteExactInput(state, Protocols.SLIPSTREAM_V1, inputs);
+                } else if (command == Commands.V2_FORK_SWAP_EXACT_IN) {
+                    revert InvalidCommandType(command);
+                } else if (command == Commands.V3_FORK_SWAP_EXACT_IN) {
+                    revert InvalidCommandType(command);
                 } else {
-                    // placeholder area for commands 0x53-0x57
+                    // placeholder area for commands 0x55-0x57
                     revert InvalidCommandType(command);
                 }
             } else {

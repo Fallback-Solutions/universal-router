@@ -16,7 +16,15 @@ contract DeployZora is DeployUniversalRouter {
             v4PoolManager: 0x0575338e4C17006aE181B47900A84404247CA30f,
             v3NFTPositionManager: 0xbC91e8DfA3fF18De43853372A3d7dfe585137D78,
             v4PositionManager: 0xf66C7b99e2040f0D9b326B3b7c152E9663543D63,
-            spokePool: 0x13fDac9F9b4777705db45291bbFF3c972c6d1d97
+            spokePool: 0x13fDac9F9b4777705db45291bbFF3c972c6d1d97,
+            velodromeFactory: address(0),
+            velodromeInitCodeHash: bytes32(0),
+            slipstreamV1Factory: address(0),
+            slipstreamV1InitCodeHash: bytes32(0),
+            slipstreamV2Factory: address(0),
+            slipstreamV2InitCodeHash: bytes32(0),
+            slipstreamV3Factory: address(0),
+            slipstreamV3InitCodeHash: bytes32(0)
         });
     }
 }

@@ -3,6 +3,8 @@ pragma solidity ^0.8.24;
 
 import {ActionConstants} from '@uniswap/v4-periphery/src/libraries/ActionConstants.sol';
 import {Actions} from '@uniswap/v4-periphery/src/libraries/Actions.sol';
+import {BytesLib} from '../../uniswap/v3/BytesLib.sol';
+import {V4RouterActions} from '../../../libraries/V4RouterActions.sol';
 import {BalanceDelta} from '@uniswap/v4-core/src/types/BalanceDelta.sol';
 import {BaseV4Quoter} from '@uniswap/v4-periphery/src/base/BaseV4Quoter.sol';
 import {BipsLibrary} from '@uniswap/v4-periphery/src/libraries/BipsLibrary.sol';
@@ -19,6 +21,7 @@ import {SafeCast} from '@uniswap/v4-core/src/libraries/SafeCast.sol';
 
 /// @title Router for Uniswap v4 Trades
 abstract contract V4SwapQuoter is BaseV4Quoter {
+    using BytesLib for bytes;
     using BipsLibrary for uint256;
     using CalldataDecoder for bytes;
     using QuoterRevert for *;
@@ -49,11 +52,22 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
         }
 
         // Check that no balances remain on the poolManager at the end of the actions.
-        poolManagerState.validateEndState();
+        poolManagerState.validatePoolManagerState();
 
         // Add gas usage during pool manager actions to the gas usage of the router.
         routerState.addGas(poolManagerState.gasUsage);
     }
+
+    /// @notice Quotes a nested plan that continues the router's open state
+    /// @param state The simulated router state to continue
+    /// @param commands A set of concatenated commands, each 1 byte in length
+    /// @param inputs An array of byte strings containing abi encoded inputs for each command
+    /// @return state_ The simulated state after executing the commands
+    /// @dev Implemented by QuoteDispatcher through a self-call, so isSubPlan() stays true
+    function _quoteSubPlan(State memory state, bytes calldata commands, bytes[] calldata inputs)
+        internal
+        virtual
+        returns (State memory state_);
 
     /// @dev Corresponding quoter logic for V4Router.sol
     function _handleAction(
@@ -62,6 +76,12 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
         uint256 action,
         bytes calldata params
     ) internal {
+        if (action == V4RouterActions.EXECUTE_SUB_PLAN_ACTION) {
+            (bytes calldata commands_, bytes[] calldata inputs_) = params.decodeCommandsAndInputs();
+            routerState.updateSegment(_quoteSubPlan(routerState, commands_, inputs_));
+            return;
+        }
+
         // swap actions and payment actions in different blocks for gas efficiency
         if (action < Actions.SETTLE) {
             if (action == Actions.SWAP_EXACT_IN) {
@@ -109,8 +129,13 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
             }
         } else {
             if (action == Actions.SETTLE_ALL) {
-                // We currently can't track debt of the poolManager in the quoter.
-                revert UnsupportedAction(Actions.SETTLE_ALL);
+                (Currency currency, uint256 maxAmount) = params.decodeCurrencyAndUint256();
+                uint256 amount = poolManagerState.flashLoanBalance(Currency.unwrap(currency));
+                if (amount == 0 || amount > maxAmount) revert UnsupportedAction(Actions.SETTLE_ALL);
+                routerState.debitTokenIn(Currency.unwrap(currency), amount);
+                poolManagerState.creditTokenIn(Currency.unwrap(currency), amount);
+                poolManagerState.addGasERC20Transfer();
+                return;
             } else if (action == Actions.TAKE_ALL) {
                 (Currency currency,) = params.decodeCurrencyAndUint256();
                 uint256 amount = poolManagerState.debitTokenOutBalance(Currency.unwrap(currency));
@@ -121,8 +146,11 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
                 return;
             } else if (action == Actions.SETTLE) {
                 (Currency currency, uint256 amount, bool payerIsUser) = params.decodeCurrencyUint256AndBool();
-                // We currently can't track debt of the poolManager in the quoter.
-                if (amount == ActionConstants.OPEN_DELTA) revert UnsupportedAction(ActionConstants.OPEN_DELTA);
+                if (amount == ActionConstants.OPEN_DELTA) {
+                    amount = poolManagerState.flashLoanBalance(Currency.unwrap(currency));
+                    // OPEN_DELTA is itself zero, so an unrecorded loan would settle nothing.
+                    if (amount == 0) revert UnsupportedAction(Actions.SETTLE);
+                }
                 // Payer is Router Contract, we have to debit the amount from the routerState.
                 if (!payerIsUser) {
                     if (amount == ActionConstants.CONTRACT_BALANCE) {
@@ -139,8 +167,8 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
                 if (amount == ActionConstants.OPEN_DELTA) {
                     amount = poolManagerState.getTokenOutBalance(Currency.unwrap(currency));
                 }
-                poolManagerState.debitTokenOut(Currency.unwrap(currency), amount);
-                poolManagerState.creditTokenEnd(Currency.unwrap(currency), amount);
+                // Debit only: crediting back here would repay the borrow with its own credit.
+                poolManagerState.debitTokenOutOrBorrow(Currency.unwrap(currency), amount);
                 poolManagerState.addGasERC20Transfer();
 
                 routerState.creditRecipient(Currency.unwrap(currency), amount, recipient);
@@ -149,8 +177,8 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
                 (Currency currency, address recipient, uint256 bips) = params.decodeCurrencyAddressAndUint256();
                 uint256 balance = poolManagerState.getTokenOutBalance(Currency.unwrap(currency));
                 uint256 amount = balance.calculatePortion(bips);
-                poolManagerState.debitTokenOut(Currency.unwrap(currency), amount);
-                poolManagerState.creditTokenEnd(Currency.unwrap(currency), amount);
+                // Debit only: crediting back here would repay the borrow with its own credit.
+                poolManagerState.debitTokenOutOrBorrow(Currency.unwrap(currency), amount);
                 poolManagerState.addGasERC20Transfer();
 
                 routerState.creditRecipient(Currency.unwrap(currency), amount, recipient);
@@ -170,7 +198,7 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
         if (params.exactAmount == ActionConstants.OPEN_DELTA) {
             params.exactAmount = poolManagerState.getTokenInBalance(tokenIn).toUint128();
         }
-        poolManagerState.debitTokenIn(tokenIn, params.exactAmount);
+        poolManagerState.debitTokenInOrBorrow(tokenIn, params.exactAmount);
 
         // Do the swap.
         uint256 gasBefore = gasleft();
@@ -193,7 +221,7 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
         if (params.exactAmount == ActionConstants.OPEN_DELTA) {
             params.exactAmount = poolManagerState.getTokenInBalance(tokenIn).toUint128();
         }
-        poolManagerState.debitTokenIn(tokenIn, params.exactAmount);
+        poolManagerState.debitTokenInOrBorrow(tokenIn, params.exactAmount);
 
         // Do the swap.
         uint256 gasBefore = gasleft();
@@ -231,7 +259,7 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
             uint256 amountIn = reason.parseQuoteAmount();
 
             // Debit tokenIn.
-            poolManagerState.debitTokenIn(tokenIn, amountIn);
+            poolManagerState.debitTokenInOrBorrow(tokenIn, amountIn);
         }
     }
 
@@ -252,7 +280,7 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
 
             // Debit tokenIn.
             address tokenIn = Currency.unwrap(params.path[params.path.length - 1].intermediateCurrency);
-            poolManagerState.debitTokenIn(tokenIn, amountIn);
+            poolManagerState.debitTokenInOrBorrow(tokenIn, amountIn);
         }
     }
 

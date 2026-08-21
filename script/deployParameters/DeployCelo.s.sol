@@ -16,7 +16,15 @@ contract DeployCelo is DeployUniversalRouter {
             v4PoolManager: address(0),
             v3NFTPositionManager: 0x3d79EdAaBC0EaB6F08ED885C05Fc0B014290D95A,
             v4PositionManager: address(0),
-            spokePool: address(0)
+            spokePool: address(0),
+            velodromeFactory: address(0),
+            velodromeInitCodeHash: bytes32(0),
+            slipstreamV1Factory: address(0),
+            slipstreamV1InitCodeHash: bytes32(0),
+            slipstreamV2Factory: address(0),
+            slipstreamV2InitCodeHash: bytes32(0),
+            slipstreamV3Factory: address(0),
+            slipstreamV3InitCodeHash: bytes32(0)
         });
 
         unsupported = 0x5Dc88340E1c5c6366864Ee415d6034cadd1A9897;

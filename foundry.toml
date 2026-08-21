@@ -11,10 +11,14 @@ fs_permissions = [{ access = "read", path = "./script/deployParameters/"}]
 
 additional_compiler_profiles = [
   { name = "manager", via_ir = true, optimizer_runs = 30000 },
+  { name = "router", via_ir = true, optimizer_runs = 800 },
 ]
 
 compilation_restrictions = [
   { paths = "lib/v4-periphery/src/PositionManager.sol", optimizer_runs = 30000 },
+  # This fork carries nine commands upstream does not, and no longer fits under EIP-170 at
+  # the profile's inlining level. Deployments compile it at 200 runs regardless.
+  { paths = "contracts/UniversalRouter.sol", optimizer_runs = 800 },
 ]
 
 [lint]

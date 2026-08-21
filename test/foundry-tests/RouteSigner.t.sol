@@ -71,7 +71,15 @@ contract RouteSignerTest is Test {
             v4PoolManager: address(0),
             v3NFTPositionManager: address(0),
             v4PositionManager: address(0),
-            spokePool: address(0)
+            spokePool: address(0),
+            velodromeFactory: address(0),
+            velodromeInitCodeHash: bytes32(0),
+            slipstreamV1Factory: address(0),
+            slipstreamV1InitCodeHash: bytes32(0),
+            slipstreamV2Factory: address(0),
+            slipstreamV2InitCodeHash: bytes32(0),
+            slipstreamV3Factory: address(0),
+            slipstreamV3InitCodeHash: bytes32(0)
         });
         router = new UniversalRouter(params);
         capturer = new ContextCapture(router);
@@ -87,8 +95,8 @@ contract RouteSignerTest is Test {
         return keccak256(
             abi.encode(
                 keccak256('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'),
-                keccak256(bytes('UniversalRouter')),
-                keccak256(bytes('2')),
+                keccak256(bytes('UniversalRouter FB')),
+                keccak256(bytes('1')),
                 block.chainid,
                 address(_router)
             )
@@ -600,7 +608,15 @@ contract RouteSignerTest is Test {
             v4PoolManager: address(0),
             v3NFTPositionManager: address(0),
             v4PositionManager: address(0),
-            spokePool: address(0)
+            spokePool: address(0),
+            velodromeFactory: address(0),
+            velodromeInitCodeHash: bytes32(0),
+            slipstreamV1Factory: address(0),
+            slipstreamV1InitCodeHash: bytes32(0),
+            slipstreamV2Factory: address(0),
+            slipstreamV2InitCodeHash: bytes32(0),
+            slipstreamV3Factory: address(0),
+            slipstreamV3InitCodeHash: bytes32(0)
         });
         UniversalRouter router2 = new UniversalRouter(params);
 

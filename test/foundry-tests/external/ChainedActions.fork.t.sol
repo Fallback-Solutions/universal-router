@@ -54,6 +54,7 @@ contract ChainedActionsFork is Test {
         }
     }
 
+    // forge-lint: disable-next-item(incorrect-modifier)
     modifier onlyForked() {
         if (forked) {
             console2.log('running forked test');
@@ -65,7 +66,9 @@ contract ChainedActionsFork is Test {
 
     function test_depositERC20() public onlyForked {
         uint256 balanceBefore = WETH9.balanceOf(ACROSS_SPOKE_POOL);
+        // forge-lint: disable-next-item(erc20-unchecked-transfer)
         WETH9.transfer(address(router), 1 ether);
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.ACROSS_V4_DEPOSIT_V3)));
         AcrossV4DepositV3Params memory params = AcrossV4DepositV3Params({
             depositor: address(this),
@@ -76,8 +79,10 @@ contract ChainedActionsFork is Test {
             outputAmount: 1 ether,
             destinationChainId: 130,
             exclusiveRelayer: address(0),
+            // forge-lint: disable-start(unsafe-typecast)
             quoteTimestamp: uint32(block.timestamp),
             fillDeadline: uint32(block.timestamp + 1 hours),
+            // forge-lint: disable-end(unsafe-typecast)
             exclusivityDeadline: 0,
             message: bytes(''),
             useNative: false
@@ -93,6 +98,7 @@ contract ChainedActionsFork is Test {
         uint256 routerBalanceBefore = address(router).balance;
         // ETH is wrapped as WETH9
         uint256 spokePoolBalanceBefore = WETH9.balanceOf(ACROSS_SPOKE_POOL);
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.ACROSS_V4_DEPOSIT_V3)));
         AcrossV4DepositV3Params memory params = AcrossV4DepositV3Params({
             depositor: address(this),
@@ -103,14 +109,17 @@ contract ChainedActionsFork is Test {
             outputAmount: 1 ether,
             destinationChainId: 130,
             exclusiveRelayer: address(0),
+            // forge-lint: disable-start(unsafe-typecast)
             quoteTimestamp: uint32(block.timestamp),
             fillDeadline: uint32(block.timestamp + 1 hours),
+            // forge-lint: disable-end(unsafe-typecast)
             exclusivityDeadline: 0,
             message: bytes(''),
             useNative: true
         });
         bytes[] memory inputs = new bytes[](1);
         inputs[0] = abi.encode(params);
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.execute{value: 1 ether}(commands, inputs, block.timestamp);
         assertEq(address(router).balance, routerBalanceBefore);
         assertEq(WETH9.balanceOf(ACROSS_SPOKE_POOL), spokePoolBalanceBefore + 1 ether);
@@ -118,7 +127,9 @@ contract ChainedActionsFork is Test {
 
     function test_depositERC20WithContractBalance() public onlyForked {
         uint256 balanceBefore = WETH9.balanceOf(ACROSS_SPOKE_POOL);
+        // forge-lint: disable-next-item(erc20-unchecked-transfer)
         WETH9.transfer(address(router), 1 ether);
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.ACROSS_V4_DEPOSIT_V3)));
         AcrossV4DepositV3Params memory params = AcrossV4DepositV3Params({
             depositor: address(this),
@@ -129,8 +140,10 @@ contract ChainedActionsFork is Test {
             outputAmount: 1 ether,
             destinationChainId: 130,
             exclusiveRelayer: address(0),
+            // forge-lint: disable-start(unsafe-typecast)
             quoteTimestamp: uint32(block.timestamp),
             fillDeadline: uint32(block.timestamp + 1 hours),
+            // forge-lint: disable-end(unsafe-typecast)
             exclusivityDeadline: 0,
             message: bytes(''),
             useNative: false
@@ -147,6 +160,7 @@ contract ChainedActionsFork is Test {
         uint256 totalDepositAmount = routerBalanceBefore + 1 ether;
         // ETH is wrapped as WETH9
         uint256 spokePoolBalanceBefore = WETH9.balanceOf(ACROSS_SPOKE_POOL);
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.ACROSS_V4_DEPOSIT_V3)));
         AcrossV4DepositV3Params memory params = AcrossV4DepositV3Params({
             depositor: address(this),
@@ -157,14 +171,17 @@ contract ChainedActionsFork is Test {
             outputAmount: totalDepositAmount,
             destinationChainId: 130,
             exclusiveRelayer: address(0),
+            // forge-lint: disable-start(unsafe-typecast)
             quoteTimestamp: uint32(block.timestamp),
             fillDeadline: uint32(block.timestamp + 1 hours),
+            // forge-lint: disable-end(unsafe-typecast)
             exclusivityDeadline: 0,
             message: bytes(''),
             useNative: true
         });
         bytes[] memory inputs = new bytes[](1);
         inputs[0] = abi.encode(params);
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.execute{value: 1 ether}(commands, inputs, block.timestamp);
         assertEq(address(router).balance, 0);
         assertEq(WETH9.balanceOf(ACROSS_SPOKE_POOL), spokePoolBalanceBefore + totalDepositAmount);

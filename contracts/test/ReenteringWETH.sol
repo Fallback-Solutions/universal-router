@@ -3,6 +3,7 @@ pragma solidity ^0.8.15;
 
 import {ERC20} from 'solmate/src/tokens/ERC20.sol';
 
+// forge-lint: disable-next-item(locked-ether)
 contract ReenteringWETH is ERC20 {
     error NotAllowedReenter();
 

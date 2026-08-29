@@ -38,6 +38,7 @@ contract UniversalRouter is IUniversalRouter, ChainedActions, RouteSigner, Dispa
     {}
 
     modifier checkDeadline(uint256 deadline) {
+        // forge-lint: disable-next-item(block-timestamp)
         if (block.timestamp > deadline) revert TransactionDeadlinePassed();
         _;
     }

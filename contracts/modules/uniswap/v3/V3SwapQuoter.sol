@@ -46,6 +46,7 @@ abstract contract V3SwapQuoter is UniswapImmutables, IUniswapV3SwapCallback, Met
 
         if (computePoolAddress(tokenIn, tokenOut, fee, protocol) != msg.sender) revert V3InvalidCaller();
 
+        // forge-lint: disable-next-item(unsafe-typecast)
         (bool isExactInput, uint256 amountToPay, uint256 amountReceived) = amount0Delta > 0
             ? (tokenIn < tokenOut, uint256(amount0Delta), uint256(-amount1Delta))
             : (tokenOut < tokenIn, uint256(amount1Delta), uint256(-amount0Delta));

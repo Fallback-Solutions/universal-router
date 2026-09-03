@@ -23,6 +23,18 @@ compilation_restrictions = [
 
 [lint]
 lint_on_build = false
+exclude_lints = [
+    "asm-keccak256",
+    "calls-loop",
+    "missing-events-access-control",
+    "missing-zero-check",
+    "reentrancy-events",
+    "require-revert-in-loop",
+    "uninitialized-local",
+    "unsafe-cheatcode",
+    "unused-return",
+    "unwrapped-modifier-logic",
+]
 
 [fmt]
 line_length = 120

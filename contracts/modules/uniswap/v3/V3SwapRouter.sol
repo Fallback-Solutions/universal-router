@@ -71,6 +71,7 @@ abstract contract V3SwapRouter is
 
         if (computePoolAddress(tokenIn, tokenOut, fee, protocol) != msg.sender) revert V3InvalidCaller();
 
+        // forge-lint: disable-next-item(unsafe-typecast)
         (bool isExactInput, uint256 amountToPay) =
             amount0Delta > 0 ? (tokenIn < tokenOut, uint256(amount0Delta)) : (tokenOut < tokenIn, uint256(amount1Delta));
 
@@ -126,6 +127,7 @@ abstract contract V3SwapRouter is
                 protocol
             );
 
+            // forge-lint: disable-next-item(unsafe-typecast)
             amountIn = uint256(-(zeroForOne ? amount1Delta : amount0Delta));
 
             // decide whether to continue or terminate
@@ -160,6 +162,7 @@ abstract contract V3SwapRouter is
         (int256 amount0Delta, int256 amount1Delta, bool zeroForOne) =
             _swap(-amountOut.toInt256(), recipient, path, payer, false, protocol);
 
+        // forge-lint: disable-next-item(unsafe-typecast)
         uint256 amountOutReceived = zeroForOne ? uint256(-amount1Delta) : uint256(-amount0Delta);
 
         if (amountOutReceived != amountOut) revert V3InvalidAmountOut();

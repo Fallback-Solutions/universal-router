@@ -24,12 +24,14 @@ abstract contract Payments is PaymentsImmutables {
     /// @param value The amount to pay
     function pay(address token, address recipient, uint256 value) internal {
         if (token == Constants.ETH) {
+            // forge-lint: disable-next-item(arbitrary-send-eth)
             recipient.safeTransferETH(value);
         } else {
             if (value == ActionConstants.CONTRACT_BALANCE) {
                 value = ERC20(token).balanceOf(address(this));
             }
 
+            // forge-lint: disable-next-item(solmate-safe-transfer-lib)
             ERC20(token).safeTransfer(recipient, value);
         }
     }
@@ -42,10 +44,12 @@ abstract contract Payments is PaymentsImmutables {
         if (token == Constants.ETH) {
             uint256 balance = address(this).balance;
             uint256 amount = balance.calculatePortion(bips);
+            // forge-lint: disable-next-item(arbitrary-send-eth)
             recipient.safeTransferETH(amount);
         } else {
             uint256 balance = ERC20(token).balanceOf(address(this));
             uint256 amount = balance.calculatePortion(bips);
+            // forge-lint: disable-next-item(solmate-safe-transfer-lib)
             ERC20(token).safeTransfer(recipient, amount);
         }
     }
@@ -59,10 +63,12 @@ abstract contract Payments is PaymentsImmutables {
         if (token == Constants.ETH) {
             balance = address(this).balance;
             if (balance < amountMinimum) revert InsufficientETH();
+            // forge-lint: disable-next-item(arbitrary-send-eth)
             if (balance > 0) recipient.safeTransferETH(balance);
         } else {
             balance = ERC20(token).balanceOf(address(this));
             if (balance < amountMinimum) revert InsufficientToken();
+            // forge-lint: disable-next-item(solmate-safe-transfer-lib)
             if (balance > 0) ERC20(token).safeTransfer(recipient, balance);
         }
     }
@@ -79,6 +85,7 @@ abstract contract Payments is PaymentsImmutables {
         if (amount > 0) {
             WETH9.deposit{value: amount}();
             if (recipient != address(this)) {
+                // forge-lint: disable-next-item(erc20-unchecked-transfer)
                 WETH9.transfer(recipient, amount);
             }
         }
@@ -95,6 +102,7 @@ abstract contract Payments is PaymentsImmutables {
         if (value > 0) {
             WETH9.withdraw(value);
             if (recipient != address(this)) {
+                // forge-lint: disable-next-item(arbitrary-send-eth)
                 recipient.safeTransferETH(value);
             }
         }

@@ -68,6 +68,7 @@ abstract contract UniswapV2Test is Test {
     }
 
     function testExactInput0For1() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.V2_SWAP_EXACT_IN)));
         address[] memory path = new address[](2);
         path[0] = token0();
@@ -81,6 +82,7 @@ abstract contract UniswapV2Test is Test {
     }
 
     function testExactInput1For0() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.V2_SWAP_EXACT_IN)));
         address[] memory path = new address[](2);
         path[0] = token1();
@@ -94,6 +96,7 @@ abstract contract UniswapV2Test is Test {
     }
 
     function testExactInput0For1FromRouter() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.V2_SWAP_EXACT_IN)));
         deal(token0(), address(router), AMOUNT);
         address[] memory path = new address[](2);
@@ -107,6 +110,7 @@ abstract contract UniswapV2Test is Test {
     }
 
     function testExactInput1For0FromRouter() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.V2_SWAP_EXACT_IN)));
         deal(token1(), address(router), AMOUNT);
         address[] memory path = new address[](2);
@@ -120,6 +124,7 @@ abstract contract UniswapV2Test is Test {
     }
 
     function testExactOutput0For1() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.V2_SWAP_EXACT_OUT)));
         address[] memory path = new address[](2);
         path[0] = token0();
@@ -133,6 +138,7 @@ abstract contract UniswapV2Test is Test {
     }
 
     function testExactOutput1For0() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.V2_SWAP_EXACT_OUT)));
         address[] memory path = new address[](2);
         path[0] = token1();
@@ -146,6 +152,7 @@ abstract contract UniswapV2Test is Test {
     }
 
     function testExactOutput0For1FromRouter() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.V2_SWAP_EXACT_OUT)));
         deal(token0(), address(router), BALANCE);
         address[] memory path = new address[](2);
@@ -159,6 +166,7 @@ abstract contract UniswapV2Test is Test {
     }
 
     function testExactOutput1For0FromRouter() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.V2_SWAP_EXACT_OUT)));
         deal(token1(), address(router), BALANCE);
         address[] memory path = new address[](2);

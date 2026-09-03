@@ -59,6 +59,7 @@ contract UniversalRouterTest is Test {
     }
 
     function testSweepToken() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.SWEEP)));
         bytes[] memory inputs = new bytes[](1);
         inputs[0] = abi.encode(address(erc20), RECIPIENT, AMOUNT);
@@ -72,6 +73,7 @@ contract UniversalRouterTest is Test {
     }
 
     function testSweepTokenInsufficientOutput() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.SWEEP)));
         bytes[] memory inputs = new bytes[](1);
         inputs[0] = abi.encode(address(erc20), RECIPIENT, AMOUNT + 1);
@@ -84,18 +86,21 @@ contract UniversalRouterTest is Test {
     }
 
     function testSweepETH() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.SWEEP)));
         bytes[] memory inputs = new bytes[](1);
         inputs[0] = abi.encode(Constants.ETH, RECIPIENT, AMOUNT);
 
         assertEq(RECIPIENT.balance, 0);
 
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.execute{value: AMOUNT}(commands, inputs);
 
         assertEq(RECIPIENT.balance, AMOUNT);
     }
 
     function testSweepETHInsufficientOutput() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.SWEEP)));
         bytes[] memory inputs = new bytes[](1);
         inputs[0] = abi.encode(Constants.ETH, RECIPIENT, AMOUNT + 1);

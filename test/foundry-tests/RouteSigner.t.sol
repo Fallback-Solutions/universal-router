@@ -10,6 +10,7 @@ import {Constants} from '../../contracts/libraries/Constants.sol';
 import {Commands} from '../../contracts/libraries/Commands.sol';
 import {RouterParameters} from '../../contracts/types/RouterParameters.sol';
 
+// forge-lint: disable-next-item(locked-ether)
 contract ContextCapture {
     UniversalRouter public router;
     address public capturedSigner;
@@ -31,6 +32,7 @@ contract ContextCapture {
     }
 }
 
+// forge-lint: disable-next-item(locked-ether)
 contract ReentrantMaliciousContract {
     UniversalRouter public router;
 
@@ -140,6 +142,7 @@ contract RouteSignerTest is Test {
     }
 
     function testExecuteSigned() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.TRANSFER)));
         bytes[] memory inputs = new bytes[](1);
         inputs[0] = abi.encode(Constants.ETH, address(capturer), AMOUNT);
@@ -151,6 +154,7 @@ contract RouteSignerTest is Test {
 
         bytes memory signature = signExecution(commands, inputs, intent, data, address(this), nonce, deadline);
 
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.executeSigned{value: AMOUNT}(commands, inputs, intent, data, true, nonce, signature, deadline);
 
         // Verify context was captured correctly during execution
@@ -170,6 +174,7 @@ contract RouteSignerTest is Test {
     }
 
     function testExecuteSignedWrongSender() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.TRANSFER)));
         bytes[] memory inputs = new bytes[](1);
         inputs[0] = abi.encode(Constants.ETH, address(capturer), AMOUNT);
@@ -188,6 +193,7 @@ contract RouteSignerTest is Test {
         vm.prank(alice);
 
         // Won't revert but will recover wrong signer
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.executeSigned{value: AMOUNT}(commands, inputs, intent, data, true, nonce, signature, deadline);
 
         // Verify the recovered signer is NOT the expected signer
@@ -200,6 +206,7 @@ contract RouteSignerTest is Test {
     }
 
     function testExecuteSignedNoSenderVerification() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.TRANSFER)));
         bytes[] memory inputs = new bytes[](1);
         inputs[0] = abi.encode(Constants.ETH, address(capturer), AMOUNT);
@@ -217,6 +224,7 @@ contract RouteSignerTest is Test {
         vm.deal(bob, AMOUNT);
         vm.prank(bob);
 
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.executeSigned{value: AMOUNT}(commands, inputs, intent, data, false, nonce, signature, deadline);
 
         // Verify context was captured correctly during execution
@@ -228,6 +236,7 @@ contract RouteSignerTest is Test {
 
     function testExecuteSignedMultipleCommands() public {
         // Create 3 transfer commands
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(
             bytes1(uint8(Commands.TRANSFER)), bytes1(uint8(Commands.TRANSFER)), bytes1(uint8(Commands.TRANSFER))
         );
@@ -247,6 +256,7 @@ contract RouteSignerTest is Test {
 
         bytes memory signature = signExecution(commands, inputs, intent, data, address(this), nonce, deadline);
 
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.executeSigned{value: AMOUNT}(commands, inputs, intent, data, true, nonce, signature, deadline);
 
         // Verify context was captured correctly during execution (from the second command)
@@ -267,6 +277,7 @@ contract RouteSignerTest is Test {
     }
 
     function testNonceReplayProtection() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.TRANSFER)));
         bytes[] memory inputs = new bytes[](1);
         inputs[0] = abi.encode(Constants.ETH, address(capturer), AMOUNT);
@@ -279,14 +290,17 @@ contract RouteSignerTest is Test {
         bytes memory signature = signExecution(commands, inputs, intent, data, address(this), nonce, deadline);
 
         // First execution should succeed
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.executeSigned{value: AMOUNT}(commands, inputs, intent, data, true, nonce, signature, deadline);
 
         // Second execution with same nonce should revert
         vm.expectRevert(RouteSigner.NonceAlreadyUsed.selector);
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.executeSigned{value: AMOUNT}(commands, inputs, intent, data, true, nonce, signature, deadline);
     }
 
     function testOptionalNonce() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.TRANSFER)));
         bytes[] memory inputs = new bytes[](1);
         inputs[0] = abi.encode(Constants.ETH, address(capturer), AMOUNT);
@@ -301,16 +315,19 @@ contract RouteSignerTest is Test {
         address expectedSigner = signer;
 
         // First execution should succeed
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.executeSigned{value: AMOUNT}(commands, inputs, intent, data, true, optionalNonce, signature, deadline);
 
         // Verify nonce was NOT marked as used
         assertFalse(router.noncesUsed(expectedSigner, optionalNonce), 'Optional nonce should not be marked as used');
 
         // Second execution with same signature should also succeed (no replay protection)
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.executeSigned{value: AMOUNT}(commands, inputs, intent, data, true, optionalNonce, signature, deadline);
     }
 
     function testExpiredDeadline() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.TRANSFER)));
         bytes[] memory inputs = new bytes[](1);
         inputs[0] = abi.encode(Constants.ETH, address(capturer), AMOUNT);
@@ -324,10 +341,12 @@ contract RouteSignerTest is Test {
 
         // Should revert with TransactionDeadlinePassed
         vm.expectRevert(IUniversalRouter.TransactionDeadlinePassed.selector);
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.executeSigned{value: AMOUNT}(commands, inputs, intent, data, true, nonce, signature, deadline);
     }
 
     function testInvalidSignature() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.TRANSFER)));
         bytes[] memory inputs = new bytes[](1);
         inputs[0] = abi.encode(Constants.ETH, address(capturer), AMOUNT);
@@ -340,6 +359,7 @@ contract RouteSignerTest is Test {
         // Create a completely invalid signature
         bytes memory invalidSignature = abi.encodePacked(bytes32(uint256(1)), bytes32(uint256(2)), uint8(27));
 
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.executeSigned{value: AMOUNT}(commands, inputs, intent, data, false, nonce, invalidSignature, deadline);
 
         // Verify the recovered signer is NOT the expected signer
@@ -348,6 +368,7 @@ contract RouteSignerTest is Test {
     }
 
     function testTamperedCommands() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.TRANSFER)));
 
         bytes[] memory inputs = new bytes[](1);
@@ -362,9 +383,11 @@ contract RouteSignerTest is Test {
         bytes memory signature = signExecution(commands, inputs, intent, data, address(this), nonce, deadline);
 
         // Tamper with commands - use TRANSFER with allow revert flag
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory tamperedCommands =
             abi.encodePacked(bytes1(uint8(Commands.TRANSFER) | uint8(Commands.FLAG_ALLOW_REVERT)));
 
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.executeSigned{value: AMOUNT}(tamperedCommands, inputs, intent, data, false, nonce, signature, deadline);
 
         // Verify the recovered signer is NOT the expected signer
@@ -373,6 +396,7 @@ contract RouteSignerTest is Test {
     }
 
     function testTamperedInputs() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.TRANSFER)));
 
         bytes[] memory inputs = new bytes[](1);
@@ -391,6 +415,7 @@ contract RouteSignerTest is Test {
         bytes[] memory tamperedInputs = new bytes[](1);
         tamperedInputs[0] = abi.encode(Constants.ETH, differentRecipient, AMOUNT);
 
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.executeSigned{value: AMOUNT}(commands, tamperedInputs, intent, data, false, nonce, signature, deadline);
 
         // Verify the recovered signer is NOT the expected signer
@@ -399,6 +424,7 @@ contract RouteSignerTest is Test {
     }
 
     function testTamperedIntent() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.TRANSFER)));
         bytes[] memory inputs = new bytes[](1);
         inputs[0] = abi.encode(Constants.ETH, address(capturer), AMOUNT);
@@ -414,6 +440,7 @@ contract RouteSignerTest is Test {
         // Tamper with intent
         bytes32 tamperedIntent = keccak256('different-intent');
 
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.executeSigned{value: AMOUNT}(commands, inputs, tamperedIntent, data, false, nonce, signature, deadline);
 
         // Verify the recovered signer is NOT the expected signer
@@ -422,6 +449,7 @@ contract RouteSignerTest is Test {
     }
 
     function testTamperedData() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.TRANSFER)));
         bytes[] memory inputs = new bytes[](1);
         inputs[0] = abi.encode(Constants.ETH, address(capturer), AMOUNT);
@@ -437,6 +465,7 @@ contract RouteSignerTest is Test {
         // Tamper with data
         bytes32 tamperedData = keccak256('different-data');
 
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.executeSigned{value: AMOUNT}(commands, inputs, intent, tamperedData, false, nonce, signature, deadline);
 
         // Verify the recovered signer is NOT the expected signer
@@ -445,6 +474,7 @@ contract RouteSignerTest is Test {
     }
 
     function testTamperedNonce() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.TRANSFER)));
         bytes[] memory inputs = new bytes[](1);
         inputs[0] = abi.encode(Constants.ETH, address(capturer), AMOUNT);
@@ -460,6 +490,7 @@ contract RouteSignerTest is Test {
         // Tamper with nonce
         bytes32 tamperedNonce = keccak256('tampered-nonce');
 
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.executeSigned{value: AMOUNT}(commands, inputs, intent, data, false, tamperedNonce, signature, deadline);
 
         // Verify the recovered signer is NOT the expected signer
@@ -468,6 +499,7 @@ contract RouteSignerTest is Test {
     }
 
     function testWrongDeadlineMismatch() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.TRANSFER)));
         bytes[] memory inputs = new bytes[](1);
         inputs[0] = abi.encode(Constants.ETH, address(capturer), AMOUNT);
@@ -483,6 +515,7 @@ contract RouteSignerTest is Test {
         // Call with different deadline
         uint256 differentDeadline = block.timestamp + 2000;
 
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.executeSigned{value: AMOUNT}(commands, inputs, intent, data, false, nonce, signature, differentDeadline);
 
         // Verify the recovered signer is NOT the expected signer
@@ -491,11 +524,13 @@ contract RouteSignerTest is Test {
     }
 
     function testRegularExecuteHasNoContext() public {
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.TRANSFER)));
         bytes[] memory inputs = new bytes[](1);
         inputs[0] = abi.encode(Constants.ETH, address(capturer), AMOUNT);
 
         // Execute using regular execute() (not executeSigned)
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.execute{value: AMOUNT}(commands, inputs, block.timestamp + 1000);
 
         // Verify no context was captured during execution
@@ -512,11 +547,13 @@ contract RouteSignerTest is Test {
 
     function testNestedExecuteSubPlanPreservesContext() public {
         // Create a sub-plan that transfers to the capturer contract (which will capture context)
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory subCommands = abi.encodePacked(bytes1(uint8(Commands.TRANSFER)));
         bytes[] memory subInputs = new bytes[](1);
         subInputs[0] = abi.encode(Constants.ETH, address(capturer), AMOUNT / 2);
 
         // Create main commands with EXECUTE_SUB_PLAN
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.EXECUTE_SUB_PLAN)));
         bytes[] memory inputs = new bytes[](1);
         inputs[0] = abi.encode(subCommands, subInputs);
@@ -528,6 +565,7 @@ contract RouteSignerTest is Test {
 
         bytes memory signature = signExecution(commands, inputs, intent, data, address(this), nonce, deadline);
 
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.executeSigned{value: AMOUNT}(commands, inputs, intent, data, true, nonce, signature, deadline);
 
         // Verify context was preserved during nested execution
@@ -545,6 +583,7 @@ contract RouteSignerTest is Test {
 
     function testContextNotLeakedBetweenTransactions() public {
         // First transaction - signed execution
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands1 = abi.encodePacked(bytes1(uint8(Commands.TRANSFER)));
         bytes[] memory inputs1 = new bytes[](1);
         inputs1[0] = abi.encode(Constants.ETH, address(capturer), AMOUNT / 2);
@@ -556,6 +595,7 @@ contract RouteSignerTest is Test {
 
         bytes memory signature1 = signExecution(commands1, inputs1, intent1, data1, address(this), nonce1, deadline1);
 
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.executeSigned{value: AMOUNT / 2}(commands1, inputs1, intent1, data1, true, nonce1, signature1, deadline1);
 
         // Verify first transaction context
@@ -571,6 +611,7 @@ contract RouteSignerTest is Test {
         assertEq(storedData, bytes32(0), 'Data should be cleared between transactions');
 
         // Second transaction - different signed execution
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands2 = abi.encodePacked(bytes1(uint8(Commands.TRANSFER)));
         bytes[] memory inputs2 = new bytes[](1);
         inputs2[0] = abi.encode(Constants.ETH, address(capturer), AMOUNT / 2);
@@ -582,6 +623,7 @@ contract RouteSignerTest is Test {
 
         bytes memory signature2 = signExecution(commands2, inputs2, intent2, data2, address(this), nonce2, deadline2);
 
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.executeSigned{value: AMOUNT / 2}(commands2, inputs2, intent2, data2, true, nonce2, signature2, deadline2);
 
         // Verify second transaction has its own context (not leaked from first)
@@ -623,6 +665,7 @@ contract RouteSignerTest is Test {
         // Deploy a context capture contract for router2
         ContextCapture capturer2 = new ContextCapture(router2);
 
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.TRANSFER)));
         bytes[] memory inputs = new bytes[](1);
         inputs[0] = abi.encode(Constants.ETH, address(capturer2), AMOUNT);
@@ -636,6 +679,7 @@ contract RouteSignerTest is Test {
         bytes memory signature = signExecution(commands, inputs, intent, data, address(this), nonce, deadline);
 
         // Try to execute on router2 with signature for router1
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router2.executeSigned{value: AMOUNT}(commands, inputs, intent, data, false, nonce, signature, deadline);
 
         // Verify the recovered signer is NOT the expected signer (because domain separator is different)
@@ -648,6 +692,7 @@ contract RouteSignerTest is Test {
         ReentrantMaliciousContract malicious = new ReentrantMaliciousContract(router);
 
         // Create commands that transfer to the malicious contract
+        // forge-lint: disable-next-item(unsafe-typecast)
         bytes memory commands = abi.encodePacked(bytes1(uint8(Commands.TRANSFER)));
         bytes[] memory inputs = new bytes[](1);
         inputs[0] = abi.encode(Constants.ETH, address(malicious), AMOUNT);
@@ -662,6 +707,7 @@ contract RouteSignerTest is Test {
         // Expect revert - malicious contract's reentry attempt will fail and cause ETH transfer to fail
         // (The reentry fails due to invalid signature, which happens before isNotLocked check)
         vm.expectRevert('ETH_TRANSFER_FAILED');
+        // forge-lint: disable-next-item(arbitrary-send-eth)
         router.executeSigned{value: AMOUNT}(commands, inputs, intent, data, true, nonce, signature, deadline);
     }
 }

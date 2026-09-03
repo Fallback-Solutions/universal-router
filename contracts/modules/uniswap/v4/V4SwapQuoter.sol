@@ -296,8 +296,10 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
             pathKey = params.path[i];
             (PoolKey memory poolKey, bool zeroForOne) = pathKey.getPoolAndSwapDirection(inputCurrency);
 
+            // forge-lint: disable-next-item(unsafe-typecast)
             swapDelta = _swap(poolKey, zeroForOne, -int256(int128(amountIn)), pathKey.hookData);
 
+            // forge-lint: disable-next-item(unsafe-typecast)
             amountIn = zeroForOne ? uint128(swapDelta.amount1()) : uint128(swapDelta.amount0());
             inputCurrency = pathKey.intermediateCurrency;
         }
@@ -311,10 +313,12 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
         selfOnly
         returns (bytes memory)
     {
+        // forge-lint: disable-next-item(unsafe-typecast)
         BalanceDelta swapDelta =
             _swap(params.poolKey, params.zeroForOne, -int256(int128(params.exactAmount)), params.hookData);
 
         // the output delta of a swap is positive
+        // forge-lint: disable-next-item(unsafe-typecast)
         uint256 amountOut = params.zeroForOne ? uint128(swapDelta.amount1()) : uint128(swapDelta.amount0());
         amountOut.revertQuote();
     }
@@ -333,6 +337,7 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
 
             swapDelta = _swap(poolKey, !oneForZero, int256(uint256(amountOut)), pathKey.hookData);
 
+            // forge-lint: disable-next-item(unsafe-typecast)
             amountOut = oneForZero ? uint128(-swapDelta.amount1()) : uint128(-swapDelta.amount0());
 
             outputCurrency = pathKey.intermediateCurrency;
@@ -351,6 +356,7 @@ abstract contract V4SwapQuoter is BaseV4Quoter {
             _swap(params.poolKey, params.zeroForOne, int256(uint256(params.exactAmount)), params.hookData);
 
         // the input delta of a swap is negative so we must flip it
+        // forge-lint: disable-next-item(unsafe-typecast)
         uint256 amountIn = params.zeroForOne ? uint128(-swapDelta.amount0()) : uint128(-swapDelta.amount1());
         amountIn.revertQuote();
     }

@@ -224,6 +224,8 @@ abstract contract V3SwapRouter is
             (factory, initCodeHash) = (SLIPSTREAM_V2_FACTORY, SLIPSTREAM_V2_POOL_INIT_CODE_HASH);
         } else if (protocol == Protocols.SLIPSTREAM_V3) {
             (factory, initCodeHash) = (SLIPSTREAM_V3_FACTORY, SLIPSTREAM_V3_POOL_INIT_CODE_HASH);
+        } else if (protocol == Protocols.METADEX_CL_V1) {
+            (factory, initCodeHash) = (METADEX_CL_V1_FACTORY, METADEX_CL_V1_POOL_INIT_CODE_HASH);
         } else {
             revert V3InvalidProtocol(protocol);
         }

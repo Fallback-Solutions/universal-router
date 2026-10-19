@@ -11,10 +11,11 @@ import {QuoterRevert} from '@uniswap/v4-periphery/src/libraries/QuoterRevert.sol
 import {QuoterStateLib, State} from '../../../libraries/QuoterState.sol';
 import {SafeCast} from '@uniswap/v3-core/contracts/libraries/SafeCast.sol';
 import {UniswapImmutables} from '../UniswapImmutables.sol';
+import {V3ForkSwapQuoter} from '../../forks/v3/V3ForkSwapQuoter.sol';
 import {V3Path} from './V3Path.sol';
 
 /// @title Router for Uniswap v3 Trades
-abstract contract V3SwapQuoter is UniswapImmutables, IUniswapV3SwapCallback, MetaDexImmutables {
+abstract contract V3SwapQuoter is UniswapImmutables, V3ForkSwapQuoter, IUniswapV3SwapCallback, MetaDexImmutables {
     using CalldataDecoder for bytes;
     using QuoterStateLib for State;
     using QuoterRevert for *;
@@ -25,6 +26,7 @@ abstract contract V3SwapQuoter is UniswapImmutables, IUniswapV3SwapCallback, Met
     uint256 private amountOutCached;
 
     error V3InvalidCaller();
+    error V3InvalidProtocol(uint256 protocol);
 
     /// @dev The minimum value that can be returned from #getSqrtRatioAtTick. Equivalent to getSqrtRatioAtTick(MIN_TICK)
     uint160 internal constant MIN_SQRT_RATIO = 4295128739;
@@ -38,7 +40,25 @@ abstract contract V3SwapQuoter is UniswapImmutables, IUniswapV3SwapCallback, Met
         view
         override
     {
+        _v3SwapCallback(amount0Delta, amount1Delta, data);
+    }
+
+    /// @notice PancakeSwap v3 pools call this name instead
+    /// @param amount0Delta The amount of token0 owed to the pool, when positive
+    /// @param amount1Delta The amount of token1 owed to the pool, when positive
+    /// @param data The path and protocol encoded by the quote that opened this callback
+    function pancakeV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external view {
+        _v3SwapCallback(amount0Delta, amount1Delta, data);
+    }
+
+    /// @notice Reverts with the quote of whichever pool is mid-swap
+    /// @param amount0Delta The amount of token0 owed to the pool, when positive
+    /// @param amount1Delta The amount of token1 owed to the pool, when positive
+    /// @param data The path and protocol encoded by the quote that opened this callback
+    /// @dev Checks the fork window first, else the caller must derive to a known factory
+    function _v3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) internal view {
         require(amount0Delta > 0 || amount1Delta > 0); // swaps entirely within 0-liquidity regions are not supported
+        _quoteV3ForkPool(amount0Delta, amount1Delta);
         (, uint256 protocol) = abi.decode(data, (bytes, uint256));
         bytes calldata path = data.toBytes(0);
 
@@ -177,10 +197,22 @@ abstract contract V3SwapQuoter is UniswapImmutables, IUniswapV3SwapCallback, Met
         );
     }
 
+    /// @dev Reverts on an unrecognised or unconfigured id instead of defaulting to one
     function getFactoryAndInitCodeHash(uint256 protocol) private view returns (address factory, bytes32 initCodeHash) {
-        if (protocol == Protocols.UNISWAP_V3) return (UNISWAP_V3_FACTORY, UNISWAP_V3_POOL_INIT_CODE_HASH);
-        else if (protocol == Protocols.SLIPSTREAM_V1) return (SLIPSTREAM_V1_FACTORY, SLIPSTREAM_V1_POOL_INIT_CODE_HASH);
-        else if (protocol == Protocols.SLIPSTREAM_V2) return (SLIPSTREAM_V2_FACTORY, SLIPSTREAM_V2_POOL_INIT_CODE_HASH);
-        else return (SLIPSTREAM_V3_FACTORY, SLIPSTREAM_V3_POOL_INIT_CODE_HASH);
+        if (protocol == Protocols.UNISWAP_V3) {
+            (factory, initCodeHash) = (UNISWAP_V3_FACTORY, UNISWAP_V3_POOL_INIT_CODE_HASH);
+        } else if (protocol == Protocols.SLIPSTREAM_V1) {
+            (factory, initCodeHash) = (SLIPSTREAM_V1_FACTORY, SLIPSTREAM_V1_POOL_INIT_CODE_HASH);
+        } else if (protocol == Protocols.SLIPSTREAM_V2) {
+            (factory, initCodeHash) = (SLIPSTREAM_V2_FACTORY, SLIPSTREAM_V2_POOL_INIT_CODE_HASH);
+        } else if (protocol == Protocols.SLIPSTREAM_V3) {
+            (factory, initCodeHash) = (SLIPSTREAM_V3_FACTORY, SLIPSTREAM_V3_POOL_INIT_CODE_HASH);
+        } else if (protocol == Protocols.METADEX_CL_V1) {
+            (factory, initCodeHash) = (METADEX_CL_V1_FACTORY, METADEX_CL_V1_POOL_INIT_CODE_HASH);
+        } else {
+            revert V3InvalidProtocol(protocol);
+        }
+
+        if (factory == address(0)) revert V3InvalidProtocol(protocol);
     }
 }

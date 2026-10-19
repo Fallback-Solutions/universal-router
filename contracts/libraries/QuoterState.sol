@@ -31,6 +31,7 @@ library QuoterStateLib {
 
     error BalanceTooLow();
     error FlashLoanNotRepaid();
+    error InsufficientToken();
     error InvalidNextToken();
     error InvalidReceiver();
     error InvalidTokenEnd();
@@ -243,10 +244,11 @@ library QuoterStateLib {
         }
     }
 
-    function sweep(State memory state, address token, address recipient) internal view {
+    function sweep(State memory state, address token, address recipient, uint256 amountMinimum) internal view {
         if (!(recipient == state.msgSender || recipient == ActionConstants.MSG_SENDER)) revert InvalidReceiver();
 
         uint256 amount = debitTokenOutBalance(state, token);
+        if (amount < amountMinimum) revert InsufficientToken();
         creditTokenEnd(state, token, amount);
     }
 

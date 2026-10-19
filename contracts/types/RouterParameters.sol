@@ -25,4 +25,10 @@ struct RouterParameters {
     bytes32 slipstreamV2InitCodeHash;
     address slipstreamV3Factory;
     bytes32 slipstreamV3InitCodeHash;
+    address metadexV1StableFactory;
+    bytes32 metadexV1StableInitCodeHash;
+    address metadexV1VolatileFactory;
+    bytes32 metadexV1VolatileInitCodeHash;
+    address metadexCLV1Factory;
+    bytes32 metadexCLV1InitCodeHash;
 }

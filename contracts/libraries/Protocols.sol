@@ -8,7 +8,9 @@ library Protocols {
     uint256 constant UNISWAP_V2 = 0x00;
     uint256 constant UNISWAP_V3 = 0x01;
     uint256 constant UNISWAP_V4 = 0x02;
-    // COMMAND_PLACEHOLDER = 0x03
+    uint256 constant V2_FORK = 0x03;
+    uint256 constant V3_FORK = 0x04;
+    // COMMAND_PLACEHOLDER = 0x05
 
     // Command Types where 0x40<=value<=0x5f
     // Reserved for 3rd party integrations
@@ -16,5 +18,7 @@ library Protocols {
     uint256 constant SLIPSTREAM_V1 = 0x41;
     uint256 constant SLIPSTREAM_V2 = 0x42;
     uint256 constant SLIPSTREAM_V3 = 0x43;
-    // COMMAND_PLACEHOLDER = 0x44
+    uint256 constant METADEX_V1 = 0x44;
+    uint256 constant METADEX_CL_V1 = 0x45;
+    // COMMAND_PLACEHOLDER = 0x46
 }

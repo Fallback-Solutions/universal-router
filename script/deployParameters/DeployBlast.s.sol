@@ -24,7 +24,13 @@ contract DeployBlast is DeployUniversalRouter {
             slipstreamV2Factory: address(0),
             slipstreamV2InitCodeHash: bytes32(0),
             slipstreamV3Factory: address(0),
-            slipstreamV3InitCodeHash: bytes32(0)
+            slipstreamV3InitCodeHash: bytes32(0),
+            metadexCLV1Factory: address(0),
+            metadexCLV1InitCodeHash: bytes32(0),
+            metadexV1StableFactory: address(0),
+            metadexV1StableInitCodeHash: bytes32(0),
+            metadexV1VolatileFactory: address(0),
+            metadexV1VolatileInitCodeHash: bytes32(0)
         });
 
         unsupported = 0x5ab1B56FB16238dB874258FB7847EFe248eb8496;

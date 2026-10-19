@@ -69,7 +69,7 @@ contract UniversalQuoter is IUniversalQuoter, QuoteDispatcher {
         returns (State memory)
     {
         // First tokenIn is by default tokenStart.
-        state.tokenIn = state.tokenStart;
+        state.startPlan();
 
         uint256 numCommands = commands.length;
         if (inputs.length != numCommands) revert LengthMismatch();

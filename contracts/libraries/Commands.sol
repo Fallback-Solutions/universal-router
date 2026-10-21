@@ -62,4 +62,11 @@ library Commands {
     uint256 constant SLIPSTREAM_V2_SWAP_EXACT_OUT = 0x5a;
     uint256 constant SLIPSTREAM_V3_SWAP_EXACT_IN = 0x5b;
     uint256 constant SLIPSTREAM_V3_SWAP_EXACT_OUT = 0x5c;
+
+    // Command Types where 0x60<=value<=0x6f
+    // Used by FB for Metadex
+    uint256 constant METADEX_V1_SWAP_EXACT_IN = 0x60;
+    // COMMAND_PLACEHOLDER = 0x61
+    uint256 constant METADEX_CL_V1_SWAP_EXACT_IN = 0x62;
+    uint256 constant METADEX_CL_V1_SWAP_EXACT_OUT = 0x63;
 }

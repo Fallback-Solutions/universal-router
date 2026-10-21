@@ -8,7 +8,7 @@ struct State {
     address msgSender;
     // The estimate of the gas usage of the swap.
     uint256 gasUsage;
-    // The Initial tokenIn being sold.
+    // The Initial tokenIn being sold, holding its balance only while tokenIn is another token.
     Token tokenStart;
     // The current tokenIn (can be the initial tokenIn or an intermediate tokenIn).
     Token tokenIn;
@@ -31,6 +31,7 @@ library QuoterStateLib {
 
     error BalanceTooLow();
     error FlashLoanNotRepaid();
+    error InsufficientToken();
     error InvalidNextToken();
     error InvalidReceiver();
     error InvalidTokenEnd();
@@ -54,6 +55,24 @@ library QuoterStateLib {
     function addGasERC20Transfer(State memory state) internal pure {
         // Gas estimate is the worst case erc20-transfer cost (cold sstore).
         state.addGas(20_000);
+    }
+
+    function startPlan(State memory state) internal pure {
+        state.tokenIn = Token(state.tokenStart.token, getTokenStartBalance(state), state.tokenStart.set);
+        state.tokenStart.balance = 0;
+    }
+
+    function tokenInIsStart(State memory state) internal pure returns (bool) {
+        return state.tokenIn.set && state.tokenStart.set && state.tokenIn.token == state.tokenStart.token;
+    }
+
+    function getTokenStartBalance(State memory state) internal pure returns (uint256) {
+        return tokenInIsStart(state) ? state.tokenIn.balance : state.tokenStart.balance;
+    }
+
+    function setTokenStartBalance(State memory state, uint256 balance) internal pure {
+        if (tokenInIsStart(state)) state.tokenIn.balance = balance;
+        else state.tokenStart.balance = balance;
     }
 
     function validateTokenStart(State memory state, address token) internal pure {
@@ -243,10 +262,11 @@ library QuoterStateLib {
         }
     }
 
-    function sweep(State memory state, address token, address recipient) internal view {
+    function sweep(State memory state, address token, address recipient, uint256 amountMinimum) internal view {
         if (!(recipient == state.msgSender || recipient == ActionConstants.MSG_SENDER)) revert InvalidReceiver();
 
         uint256 amount = debitTokenOutBalance(state, token);
+        if (amount < amountMinimum) revert InsufficientToken();
         creditTokenEnd(state, token, amount);
     }
 
@@ -261,17 +281,19 @@ library QuoterStateLib {
 
         // TokenIn must be consumed,
         // or in the case of a Sub Plan, tokenIn must be the first asset of the Sub Plan.
-        if (
-            state.tokenIn.balance > 0
-                && !(isSubPlan() && state.tokenStart.set && state.tokenIn.token == state.tokenStart.token)
-        ) {
+        if (state.tokenIn.balance > 0 && !(isSubPlan() && tokenInIsStart(state))) {
             revert TokenInNotConsumed();
         }
 
         // We move one iteration up in the swap path.
         // TokenOut of this iteration becomes tokenIn of the next iteration.
+        if (tokenInIsStart(state)) state.tokenStart.balance += state.tokenIn.balance;
         state.tokenIn = state.tokenOut;
         delete state.tokenOut;
+        if (tokenInIsStart(state)) {
+            state.tokenIn.balance += state.tokenStart.balance;
+            state.tokenStart.balance = 0;
+        }
     }
 
     function validateEndState(State memory state) internal view {
@@ -280,12 +302,7 @@ library QuoterStateLib {
 
         // TokenIn must be consumed,
         // or in the case of a Sub Plan, tokenIn must be the first asset of the Sub Plan.
-        if (
-            state.tokenIn.balance > 0
-                && !(isSubPlan() && state.tokenStart.set && state.tokenIn.token == state.tokenStart.token)
-        ) {
-            revert TokenInNotConsumed();
-        }
+        if (state.tokenIn.balance > 0 && !(isSubPlan() && tokenInIsStart(state))) revert TokenInNotConsumed();
 
         // The pool manager must be repaid.
         if (state.flashLoan.balance > 0) revert FlashLoanNotRepaid();
@@ -302,12 +319,7 @@ library QuoterStateLib {
 
     function validateSegmentState(State memory state) internal view {
         // No tokenEnd required: a block exiting via TAKE(ADDRESS_THIS) leaves funds on the router.
-        if (
-            state.tokenIn.balance > 0
-                && !(isSubPlan() && state.tokenStart.set && state.tokenIn.token == state.tokenStart.token)
-        ) {
-            revert TokenInNotConsumed();
-        }
+        if (state.tokenIn.balance > 0 && !(isSubPlan() && tokenInIsStart(state))) revert TokenInNotConsumed();
         // The pool manager must be repaid.
         if (state.flashLoan.balance > 0) revert FlashLoanNotRepaid();
     }
@@ -319,6 +331,7 @@ library QuoterStateLib {
         if (newState.tokenEnd.balance > 0) revert SegmentPaidMsgSender();
 
         // flashLoan is not copied back: only the pool-manager state ever carries a loan.
+        state.tokenStart = newState.tokenStart;
         state.tokenIn = newState.tokenIn;
         state.tokenOut = newState.tokenOut;
         state.gasUsage = newState.gasUsage;
@@ -330,7 +343,7 @@ library QuoterStateLib {
 
         // Update balance TokenStart.
         state.validateTokenStart(newState.tokenStart.token);
-        state.tokenStart.balance = newState.tokenStart.balance;
+        state.setTokenStartBalance(newState.getTokenStartBalance());
 
         // Balance for TokenIn is either zero, or tokenIn is the same as tokenStart.
         // Balance for TokenOut is zero.

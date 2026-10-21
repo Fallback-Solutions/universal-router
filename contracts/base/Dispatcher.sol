@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.24;
 
-import {V2SwapRouter} from '../modules/uniswap/v2/V2SwapRouter.sol';
-import {V2ForkSwapRouter} from '../modules/forks/v2/V2ForkSwapRouter.sol';
 import {V3SwapRouter} from '../modules/uniswap/v3/V3SwapRouter.sol';
 import {V4SwapRouter} from '../modules/uniswap/v4/V4SwapRouter.sol';
 import {BytesLib} from '../modules/uniswap/v3/BytesLib.sol';
@@ -19,24 +17,27 @@ import {PoolKey} from '@uniswap/v4-core/src/types/PoolKey.sol';
 import {IPoolManager} from '@uniswap/v4-core/src/interfaces/IPoolManager.sol';
 import {ChainedActions} from '../modules/ChainedActions.sol';
 import {Protocols} from '../libraries/Protocols.sol';
+import {Facet, FacetLib} from '../libraries/Facet.sol';
+import {IV2SwapFacet} from '../interfaces/IV2SwapFacet.sol';
+import {V2Path} from '../modules/uniswap/v2/V2Path.sol';
 
 /// @title Decodes and Executes Commands
 /// @notice Called by the UniversalRouter contract to efficiently decode and execute a singular command
-abstract contract Dispatcher is
-    Payments,
-    V2SwapRouter,
-    V2ForkSwapRouter,
-    V3SwapRouter,
-    V4SwapRouter,
-    V3ToV4Migrator,
-    Lock,
-    ChainedActions
-{
+abstract contract Dispatcher is Payments, V3SwapRouter, V4SwapRouter, V3ToV4Migrator, Lock, ChainedActions {
     using BytesLib for bytes;
     using CalldataDecoder for bytes;
+    using FacetLib for Facet;
 
     error InvalidCommandType(uint256 commandType);
     error BalanceTooLow();
+
+    /// @notice The facet executing the v2-style swaps
+    Facet internal immutable V2_SWAP_FACET;
+
+    /// @param v2SwapFacet The deployed V2SwapFacet
+    constructor(address v2SwapFacet) {
+        V2_SWAP_FACET = Facet.wrap(v2SwapFacet);
+    }
 
     /// @notice Executes encoded commands along with provided inputs.
     /// @param commands A set of concatenated commands, each 1 byte in length
@@ -153,7 +154,19 @@ abstract contract Dispatcher is
                         }
                         address[] calldata path = inputs.toAddressArray(3);
                         address payer = payerIsUser ? msgSender() : address(this);
-                        v2SwapExactInput(map(recipient), amountIn, amountOutMin, path, payer);
+                        V2_SWAP_FACET.delegate(
+                            abi.encodeCall(
+                                IV2SwapFacet.v2SwapExactIn,
+                                (
+                                    map(recipient),
+                                    amountIn,
+                                    amountOutMin,
+                                    V2Path.fromTokens(path),
+                                    payer,
+                                    Protocols.UNISWAP_V2
+                                )
+                            )
+                        );
                     } else if (command == Commands.V2_SWAP_EXACT_OUT) {
                         // equivalent: abi.decode(inputs, (address, uint256, uint256, bytes, bool))
                         address recipient;
@@ -169,7 +182,19 @@ abstract contract Dispatcher is
                         }
                         address[] calldata path = inputs.toAddressArray(3);
                         address payer = payerIsUser ? msgSender() : address(this);
-                        v2SwapExactOutput(map(recipient), amountOut, amountInMax, path, payer);
+                        V2_SWAP_FACET.delegate(
+                            abi.encodeCall(
+                                IV2SwapFacet.v2SwapExactOut,
+                                (
+                                    map(recipient),
+                                    amountOut,
+                                    amountInMax,
+                                    V2Path.fromTokens(path),
+                                    payer,
+                                    Protocols.UNISWAP_V2
+                                )
+                            )
+                        );
                     } else if (command == Commands.PERMIT2_PERMIT) {
                         // equivalent: abi.decode(inputs, (IAllowanceTransfer.PermitSingle, bytes))
                         IAllowanceTransfer.PermitSingle calldata permitSingle;
@@ -278,11 +303,9 @@ abstract contract Dispatcher is
         } else {
             if (command < Commands.SLIPSTREAM_V1_SWAP_EXACT_OUT) {
                 if (command == Commands.VELODROME_SWAP_EXACT_IN) {
-                    // TODO
-                    revert InvalidCommandType(command);
+                    v2SwapExactInput(Protocols.VELODROME, inputs);
                 } else if (command == Commands.VELODROME_SWAP_EXACT_OUT) {
-                    // TODO
-                    revert InvalidCommandType(command);
+                    v2SwapExactOutput(Protocols.VELODROME, inputs);
                 } else if (command == Commands.SLIPSTREAM_V1_SWAP_EXACT_IN) {
                     v3SwapExactInput(Protocols.SLIPSTREAM_V1, inputs);
                 } else if (command == Commands.V2_FORK_SWAP_EXACT_IN) {
@@ -306,8 +329,11 @@ abstract contract Dispatcher is
                         payerIsUser := calldataload(add(inputs.offset, 0xe0))
                     }
                     address payer = payerIsUser ? msgSender() : address(this);
-                    v2ForkSwapExactInput(
-                        map(recipient), amountIn, amountOutMin, pair, tokenIn, tokenOut, feePips, payer
+                    V2_SWAP_FACET.delegate(
+                        abi.encodeCall(
+                            IV2SwapFacet.v2ForkSwapExactIn,
+                            (map(recipient), amountIn, amountOutMin, pair, tokenIn, tokenOut, feePips, payer)
+                        )
                     );
                 } else if (command == Commands.V3_FORK_SWAP_EXACT_IN) {
                     // equivalent: abi.decode(inputs, (address, uint256, uint256, address, address, address, bool))
@@ -333,7 +359,7 @@ abstract contract Dispatcher is
                     // placeholder area for commands 0x55-0x57
                     revert InvalidCommandType(command);
                 }
-            } else {
+            } else if (command < Commands.METADEX_V1_SWAP_EXACT_IN) {
                 if (command == Commands.SLIPSTREAM_V1_SWAP_EXACT_OUT) {
                     v3SwapExactOutput(Protocols.SLIPSTREAM_V1, inputs);
                 } else if (command == Commands.SLIPSTREAM_V2_SWAP_EXACT_IN) {
@@ -346,6 +372,17 @@ abstract contract Dispatcher is
                     v3SwapExactOutput(Protocols.SLIPSTREAM_V3, inputs);
                 } else {
                     // placeholder area for commands 0x5d-0x5f
+                    revert InvalidCommandType(command);
+                }
+            } else {
+                if (command == Commands.METADEX_V1_SWAP_EXACT_IN) {
+                    v2SwapExactInput(Protocols.METADEX_V1, inputs);
+                } else if (command == Commands.METADEX_CL_V1_SWAP_EXACT_IN) {
+                    v3SwapExactInput(Protocols.METADEX_CL_V1, inputs);
+                } else if (command == Commands.METADEX_CL_V1_SWAP_EXACT_OUT) {
+                    v3SwapExactOutput(Protocols.METADEX_CL_V1, inputs);
+                } else {
+                    // placeholder area for commands 0x61 and 0x64-0x7f
                     revert InvalidCommandType(command);
                 }
             }
@@ -364,6 +401,52 @@ abstract contract Dispatcher is
                 revert(add(output, 0x20), mload(output))
             }
         }
+    }
+
+    /// @notice Decodes and executes the SwapExactInput command for Uniswap V2 type protocols, with the given inputs
+    /// @param protocol The Uniswap V2 type protocol
+    /// @param inputs The inputs to execute the command with
+    function v2SwapExactInput(uint256 protocol, bytes calldata inputs) internal {
+        // equivalent: abi.decode(inputs, (address, uint256, uint256, bytes, bool))
+        address recipient;
+        uint256 amountIn;
+        uint256 amountOutMin;
+        bool payerIsUser;
+        assembly {
+            recipient := calldataload(inputs.offset)
+            amountIn := calldataload(add(inputs.offset, 0x20))
+            amountOutMin := calldataload(add(inputs.offset, 0x40))
+            // 0x60 offset is the path, decoded below
+            payerIsUser := calldataload(add(inputs.offset, 0x80))
+        }
+        bytes calldata path = inputs.toBytes(3);
+        address payer = payerIsUser ? msgSender() : address(this);
+        V2_SWAP_FACET.delegate(
+            abi.encodeCall(IV2SwapFacet.v2SwapExactIn, (map(recipient), amountIn, amountOutMin, path, payer, protocol))
+        );
+    }
+
+    /// @notice Decodes and executes the SwapExactOutput command for Uniswap V2 type protocols, with the given inputs
+    /// @param protocol The Uniswap V2 type protocol
+    /// @param inputs The inputs to execute the command with
+    function v2SwapExactOutput(uint256 protocol, bytes calldata inputs) internal {
+        // equivalent: abi.decode(inputs, (address, uint256, uint256, bytes, bool))
+        address recipient;
+        uint256 amountOut;
+        uint256 amountInMax;
+        bool payerIsUser;
+        assembly {
+            recipient := calldataload(inputs.offset)
+            amountOut := calldataload(add(inputs.offset, 0x20))
+            amountInMax := calldataload(add(inputs.offset, 0x40))
+            // 0x60 offset is the path, decoded below
+            payerIsUser := calldataload(add(inputs.offset, 0x80))
+        }
+        bytes calldata path = inputs.toBytes(3);
+        address payer = payerIsUser ? msgSender() : address(this);
+        V2_SWAP_FACET.delegate(
+            abi.encodeCall(IV2SwapFacet.v2SwapExactOut, (map(recipient), amountOut, amountInMax, path, payer, protocol))
+        );
     }
 
     /// @notice Decodes and executes the SwapExactInput command for Uniswap V3 type protocols, with the given inputs

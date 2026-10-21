@@ -13,6 +13,16 @@ library Constants {
     /// @dev The length of the bytes encoded address
     uint256 internal constant ADDR_SIZE = 20;
 
+    /// @dev The length of the bytes encoded stable flag
+    uint256 internal constant V2_STABLE_SIZE = 1;
+
+    /// @dev The offset of a single token address (20) and stable flag (1)
+    uint256 internal constant NEXT_V2_POOL_OFFSET = ADDR_SIZE + V2_STABLE_SIZE;
+
+    /// @dev The offset of an encoded v2 pool
+    /// Token (20) + Stable (1) + Token (20) = 41
+    uint256 internal constant V2_POP_OFFSET = NEXT_V2_POOL_OFFSET + ADDR_SIZE;
+
     /// @dev The length of the bytes encoded fee
     uint256 internal constant V3_FEE_SIZE = 3;
 

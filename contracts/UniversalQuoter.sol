@@ -8,6 +8,7 @@ import {QuoteDispatcher} from './base/QuoteDispatcher.sol';
 import {QuoterStateLib, State, Token} from './libraries/QuoterState.sol';
 import {RouterParameters} from './types/RouterParameters.sol';
 import {UniswapImmutables, UniswapParameters} from './modules/uniswap/UniswapImmutables.sol';
+import {V2QuoteFacet} from './facets/V2QuoteFacet.sol';
 import {V4SwapQuoter} from './modules/uniswap/v4/V4SwapQuoter.sol';
 
 contract UniversalQuoter is IUniversalQuoter, QuoteDispatcher {
@@ -27,8 +28,15 @@ contract UniversalQuoter is IUniversalQuoter, QuoteDispatcher {
                 params.slipstreamV2Factory,
                 params.slipstreamV2InitCodeHash,
                 params.slipstreamV3Factory,
-                params.slipstreamV3InitCodeHash
+                params.slipstreamV3InitCodeHash,
+                params.metadexV1StableFactory,
+                params.metadexV1StableInitCodeHash,
+                params.metadexV1VolatileFactory,
+                params.metadexV1VolatileInitCodeHash,
+                params.metadexCLV1Factory,
+                params.metadexCLV1InitCodeHash
             ))
+        QuoteDispatcher(address(new V2QuoteFacet(params)))
     {}
 
     /// @notice Quotes encoded commands along with provided inputs.
@@ -61,7 +69,7 @@ contract UniversalQuoter is IUniversalQuoter, QuoteDispatcher {
         returns (State memory)
     {
         // First tokenIn is by default tokenStart.
-        state.tokenIn = state.tokenStart;
+        state.startPlan();
 
         uint256 numCommands = commands.length;
         if (inputs.length != numCommands) revert LengthMismatch();
